@@ -377,12 +377,17 @@ PROGRAM EXECUTE
 
 			ierr = NF90_DEF_VAR(cdfid, TRIM(qname),NF90_FLOAT,dimids,idq)
 			ierr = NF90_DEF_VAR(cdfid, TRIM(xname),NF90_FLOAT,x_dimid,idx)
-            ierr = NF90_DEF_VAR(cdfid, TRIM(muname), NF90_FLOAT,0,idmu)
+            ierr = NF90_DEF_VAR(cdfid, TRIM(muname),NF90_FLOAT,idmu)
 
 			ierr = NF90_enddef(cdfid)
 
 			! Write x values
-			ierr = NF90_PUT_VAR(cdfid, idx, x)
+        		ALLOCATE(temp(1:nxout), STAT=ierr)
+            DO j=1,nelem
+            		temp(1+(j-1)*(N+1):j*(N+1)) = x(:,j)
+            ENDDO !j
+
+			ierr = NF90_PUT_VAR(cdfid, idx, temp)
             ierr = NF90_PUT_VAR(cdfid,idmu,mu)
 
 			start(2) = 1
