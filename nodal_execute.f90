@@ -5,7 +5,7 @@ PROGRAM EXECUTE
     	INTEGER, PARAMETER :: DOUBLE=KIND(1D0)
 	INTEGER :: start_res,ntest
 	REAL(KIND=DOUBLE) :: mu
-	LOGICAL :: dodghybrid, doposlimit, debug, dozshulimit
+	LOGICAL :: debug, dozshulimit
 	INTEGER :: nout
 
 	start_res = 8
@@ -14,8 +14,6 @@ PROGRAM EXECUTE
 
 	debug = .FALSE.
 	dozshulimit = .FALSE.
-	dodghybrid = .FALSE.
-	doposlimit = .FALSE.
 
 
 	write(*,*) '======'
@@ -81,9 +79,10 @@ PROGRAM EXECUTE
 
 		if(nlvl.lt.1) STOP 'nlev should be at least 1 in test1d_nodal'
 
-		nmethod_final = 1
+		nmethod_final = 2
 		tmp_method = 0
 		tmp_method(1) = 1 
+		tmp_method(2) = 2
 
 		! -----
 		! Set domain
@@ -169,7 +168,6 @@ PROGRAM EXECUTE
 			t = 0d0
 			tmp_qmax = MAXVAL(q0)
 			tmp_qmin = MINVAL(q0)
-
             DO l=1,nsteps
                 CALL nDGsweep(q,nelem,dxel,N,qnodes,qweights,u,lagDeriv,dozshulimit,dt)
                 t = t + dt

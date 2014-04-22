@@ -35,14 +35,14 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt
     qStar = q
     ! Do SSPRK3 Update
     DO stage=1,3
-        CALL evalExpansion(quadVals,edgeVals,qStar,nelem,nNodes,dozhangshu)
+        CALL evalExpansion(quadVals,edgeVals,qStar,qWeights,nelem,nNodes,dozhangshu)
         CALL numFlux(flx,edgeVals,utmp,nelem,nNodes)
 
         ! Forward Step
         DO j=1,nelem
             DO k=0,nNodes
                 tmp = lagDeriv(k,:)
-                qFwd(k,j) = qStar(k,j) + (dt/dxel)*dadt(quadVals(:,j),flx,u(:,j),qWeights,tmp,k,j,nelem,nNodes)
+                qFwd(k,j) = qStar(k,j) + (dt/dxel)*dadt(quadVals(:,j),flx,utmp(:,j),qWeights,tmp,k,j,nelem,nNodes)
             ENDDO !k
         ENDDO ! j
 
@@ -55,19 +55,19 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt
 			qStar = q/3d0 + 2D0*qFwd/3D0
 		END SELECT
     ENDDO !stage
-999 continue
     q = qStar
 
 END SUBROUTINE nDGsweep
 
-SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,nelem,nNodes,dozhangshu)
+SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,qWeights,nelem,nNodes,dozhangshu)
 ! Evaluate ansatz solution at quadrature nodes and edges
 ! Note: Currently assumes basis is Lagrange interpolating polynomials at quad nodes -> phi_j (xi_k) = qIn(k,j)
     IMPLICIT NONE
     ! Inputs
     INTEGER, INTENT(IN) :: nelem,nNodes
     LOGICAL, INTENT(IN) :: dozhangshu
-    REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(IN) :: qIn
+    REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
+    REAL(KIND=8), DIMENSION(0:nNodes), INTENT(IN) :: qWeights
 
     ! Outputs
     REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(OUT) :: quadVals
@@ -75,6 +75,7 @@ SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,nelem,nNodes,dozhangshu)
 
     ! Local Variables
     INTEGER :: j
+    REAL(KIND=8) :: avgVal,theta,valMin
 
     ! Ansatz value at quad locations for the jth element is just coefficient value
     quadVals = qIn
@@ -82,9 +83,17 @@ SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,nelem,nNodes,dozhangshu)
     edgeVals(0,1:nelem) = qIn(0,:) ! left edge value is just left-most coefficient
     edgeVals(1,1:nelem) = qIn(nNodes,:) ! right edge value is just right-most coefficient
 
+    ! Use Zhang and Shu rescaling for positive-definiteness (if necessary)
     IF(dozhangshu) THEN
-        ! To be filled in
-        write(*,*) ' WARNING::: THIS ISNT IMPLEMENTED YET'
+        DO j=1,nelem
+            avgVal = 0.5D0*SUM( qWeights(:)*quadVals(:,j) )
+            valMin = MINVAL(quadVals(:,j))
+            theta = MIN(avgVal/abs(valMin-avgVal),1D0)
+
+            quadVals(:,j) = theta*(quadVals(:,j)-avgVal) + avgVal
+            edgeVals(:,j) = theta*(edgeVals(:,j)-avgVal) + avgVal
+            qIn(:,j) = theta*(qIn(:,j)-avgVal) + avgVal
+        ENDDO !j
     ENDIF
 
 	! Extend edgeVals periodically
