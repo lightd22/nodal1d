@@ -116,7 +116,7 @@ MODULE nDGmod
     ! ########################################################################
     ! Subroutine for computing GLL nodes based on the derivative of N'th Order Legendre Polynomial
     ! ########################################################################
-        SUBROUTINE gllnewton(N,nodes)
+        SUBROUTINE gllquad_nodes(N,nodes)
             IMPLICIT NONE
             INTEGER, INTENT(IN) :: N
             REAL(KIND=DOUBLE), DIMENSION(0:N), INTENT(OUT) :: nodes
@@ -141,12 +141,12 @@ MODULE nDGmod
                 END DO
                 nodes(k) = xold
             END DO
-        END SUBROUTINE gllnewton
+        END SUBROUTINE gllquad_nodes
 
     ! ########################################################################
     ! Computing weights associated with N+1 nodes for quadratures on [-1,1]
     ! ########################################################################
-        SUBROUTINE weights(N,nodes,wghts)
+        SUBROUTINE gllquad_weights(N,nodes,wghts)
             IMPLICIT NONE
             INTEGER, INTENT(IN) :: N
             REAL(KIND=DOUBLE), DIMENSION(0:N), INTENT(IN) :: nodes
@@ -157,7 +157,7 @@ MODULE nDGmod
                 wghts(k) = 2D0/(N*(N+1)*(legendre(nodes(k),N))**2)
             END DO
 
-        END SUBROUTINE weights
+        END SUBROUTINE gllquad_weights
 
     ! ###########################################################
     ! baryWeights computes the set of barycentric weights for the Lagrange interpolating polynomial,
@@ -201,7 +201,7 @@ MODULE nDGmod
             MASK(k) = .FALSE.
 
             l = xi - nodes
-            phi = PRODUCT(l,MASK)*lambda(k)
+            lagrange = PRODUCT(l,MASK)*lambda(k)
 
        END FUNCTION lagrange
 

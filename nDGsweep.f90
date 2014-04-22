@@ -6,6 +6,10 @@
 SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt)
     IMPLICIT NONE
     INTEGER, PARAMETER :: DOUBLE = KIND(1D0) ! Specification of DOUBLE
+
+    ! External Functions
+	REAL(KIND=DOUBLE), EXTERNAL :: dadt ! RHS function for evolution ODE for kth expansion coefficent
+
     ! Inputs
     INTEGER, INTENT(IN) :: nelem,nNodes
     LOGICAL, INTENT(IN) :: dozhangshu
@@ -99,3 +103,21 @@ SUBROUTINE numFlux(flx,edgeVals,u,nelem,nNodes)
 		flx(j) = 0.5D0*edgeVals(1,j)*(u(nNodes,j)+DABS(u(nNodes,j)))+0.5D0*edgeVals(0,j+1)*(u(nNodes,j)-DABS(u(nNodes,j)))
 	ENDDO
 END SUBROUTINE numFlux
+
+REAL(KIND=8) FUNCTION dadt(quadVals,flx,u,qWeights,lagDeriv,k,j,nelem,nNodes)
+    IMPLICIT NONE
+    ! Inputs
+    INTEGER, INTENT(IN) :: nelem,nNodes,k,j
+    REAL(KIND=8), DIMENSION(0:nNodes) :: quadVals,u,qWeights,lagDeriv
+    REAL(KIND=8), DIMENSION(0:nelem) :: flx
+
+    dadt = SUM( u(:)*quadVals(:)*lagDeriv(:)*qWeights(:) )
+
+    IF( k .eq. 0) THEN
+        dadt = dadt + flx(j-1)
+    ELSEIF( k .eq. nNodes) THEN
+        dadt = dadt - flx(j)
+    ENDIF
+
+    dadt = 2D0*dadt/qWeights(k)
+END FUNCTION dadt
