@@ -22,20 +22,25 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt
     REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: q 
 
     ! Local Variables
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem) :: qFwd, qStar,quadVals
+    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem) :: qFwd,qStar,quadVals
+    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nelem) :: utmp
     REAL(KIND=DOUBLE), DIMENSION(0:1,0:nelem+1) :: edgeVals
+    REAL(KIND=DOUBLE), DIMENSION(0:nelem) :: flx
     INTEGER :: k,j,stage
+
+    utmp(:,1:nelem) = u
+    utmp(:,0) = u(:,nelem)
 
     qStar = q
     ! Do SSPRK3 Update
     DO stage=1,3
         CALL evalExpansion(quadVals,edgeVals,qStar,nelem,nNodes,dozhangshu)
-        CALL numFlux(flx,edgeVals,u,nelem,nNodes)
+        CALL numFlux(flx,edgeVals,utmp,nelem,nNodes)
 
         ! Forward Step
         DO j=1,nelem
             DO k=0,nNodes
-                qFwd(k,j) = qStar + (dt/dxel)*dadt(quadVals(:,j),flx,u(:,j),qWeights,lagDeriv(k,:),k,j,nelem,nNodes)
+                qFwd(k,j) = qStar(k,j) + (dt/dxel)*dadt(quadVals(:,j),flx,u(:,j),qWeights,lagDeriv(k,:),k,j,nelem,nNodes)
             ENDDO !k
         ENDDO ! j
 
@@ -85,13 +90,13 @@ SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,nelem,nNodes,dozhangshu)
 
 END SUBROUTINE evalExpansion
 
-SUBROUTINE numFlux(flx,edgeVals,u,nelem,nNodes)
+SUBROUTINE numFlux(flx,edgeVals,uin,nelem,nNodes)
 	IMPLICIT NONE
 	INTEGER, PARAMETER :: DOUBLE = KIND(1D0)
 	! -- Inputs
 	INTEGER, INTENT(IN) :: nelem,nNodes
 	REAL(KIND=DOUBLE), DIMENSION(0:1,0:nelem+1), INTENT(IN) :: edgeVals
-	REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem), INTENT(IN) :: u
+	REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nelem), INTENT(IN) :: uin
 
 	! -- Outputs	
 	REAL(KIND=DOUBLE),DIMENSION(0:nelem), INTENT(OUT) :: flx
@@ -100,7 +105,7 @@ SUBROUTINE numFlux(flx,edgeVals,u,nelem,nNodes)
 	INTEGER :: j
 
 	DO j=0,nelem
-		flx(j) = 0.5D0*edgeVals(1,j)*(u(nNodes,j)+DABS(u(nNodes,j)))+0.5D0*edgeVals(0,j+1)*(u(nNodes,j)-DABS(u(nNodes,j)))
+		flx(j) = 0.5D0*edgeVals(1,j)*(uin(nNodes,j)+DABS(uin(nNodes,j)))+0.5D0*edgeVals(0,j+1)*(uin(nNodes,j)-DABS(uin(nNodes,j)))
 	ENDDO
 END SUBROUTINE numFlux
 

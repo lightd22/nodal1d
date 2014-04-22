@@ -1,5 +1,6 @@
 PROGRAM EXECUTE
-    USE nDGmod, netcdf
+    USE nDGmod
+    USE netcdf
     IMPLICIT NONE
     	INTEGER, PARAMETER :: DOUBLE=KIND(1D0)
 	INTEGER :: start_res,ntest
@@ -9,7 +10,7 @@ PROGRAM EXECUTE
 
 	start_res = 8
 	mu = 0.1D0
-	nout = 100
+	nout = 20
 
 	debug = .FALSE.
 	dozshulimit = .FALSE.
@@ -66,10 +67,10 @@ PROGRAM EXECUTE
 
 		REAL(KIND=DOUBLE), DIMENSION(:), ALLOCATABLE :: qNodes,qWeights,ecent,nodeSpacing,tmpErr
 		REAL(KIND=DOUBLE), DIMENSION(:,:), ALLOCATABLE :: lagDeriv
-		REAL(KIND=DOUBLE), ALLOCATABLE, DIMENSION(:,:) :: q0,q,u
+		REAL(KIND=DOUBLE), ALLOCATABLE, DIMENSION(:,:) :: q0,q,u,xQuad
 		REAL(KIND=DOUBLE), DIMENSION(:), ALLOCATABLE :: M0,Mf
 
-		REAL(KIND=DOUBLE) :: dxel, PI, dt,t
+		REAL(KIND=DOUBLE) :: dxel, PI, dt,t,dxm
 		REAL(KIND=8) :: tmp_qmax,tmp_qmin
 		REAL(KIND=4) :: t0,tf
 		REAL(KIND=4), DIMENSION(2) :: tstart,tend
@@ -126,7 +127,7 @@ PROGRAM EXECUTE
 
 			nelem = nex0*nscale**(p-1)
 
-			ALLOCATE(ecent(1:nelem),M0(1:nelem),Mf(1:nelem),q0(0:N,1:nelem),q(0:N,1:nelem,u(0:N,1:nelem))
+			ALLOCATE(ecent(1:nelem),M0(1:nelem),Mf(1:nelem),q0(0:N,1:nelem),q(0:N,1:nelem),u(0:N,1:nelem),xQuad(0:N,1:nelem))
 			! -- Set up x-grid via elements
 			dxel = domWidth/DBLE(nelem)
 			ecent(1) = xLeft + dxel/2D0
@@ -135,9 +136,8 @@ PROGRAM EXECUTE
 			END DO
 
 			! Initialize rhoq, u, and filenames
-			CALL inits(ntest,q,u,nelem,dxel,N,ecent,qnodes,tfinal,cdf_out)
+			CALL inits(ntest,q,u,xQuad,nelem,dxel,N,ecent,qnodes,tfinal,cdf_out)
 			cdf_out = outdir // cdf_out
-
             q0 = q
 
 			! Set up timestep
@@ -157,6 +157,7 @@ PROGRAM EXECUTE
 			IF(p .eq. 1) THEN ! Set up netCDF file
 				CALL output1d(q0,xQuad,qweights,qnodes,N,nelem,tfinal,mu,cdf_out,nout,-1)
 			ENDIF
+
 			CALL output1d(q0,xQuad,qweights,qnodes,N,nelem,0D0,mu,cdf_out,p,0) ! Set up variables for this value of p ; Write x and initial conditions
 
             ! Compute initial mass from ICs for conservation testing
@@ -170,11 +171,11 @@ PROGRAM EXECUTE
 			tmp_qmin = MINVAL(q0)
 
             DO l=1,nsteps
-                CALL nDGsweep(q,nelem,dxel,N,qnodes,qweights,u,lagDeriv,dozshulimit,dt)
+!                CALL nDGsweep(q,nelem,dxel,N,qnodes,qweights,u,lagDeriv,dozshulimit,dt)
                 t = t + dt
             
                 IF((MOD(l,nsteps/nout).eq.0).OR.(l.eq.nsteps)) THEN
-                    output1d(q,xQuad,qweights,qnodes,N,nelem,t,mu,cdf_out,p,2)
+                    CALL output1d(q,xQuad,qweights,qnodes,N,nelem,t,mu,cdf_out,p,2)
                 ENDIF ! output check
 
                 tmp_qmax = MAX(MAXVAL(q),tmp_qmax)
@@ -225,13 +226,16 @@ PROGRAM EXECUTE
 				CALL output1d(q,xQuad,qweights,qnodes,N,nelem,t,mu,cdf_out,p,1) ! Close netCDF files
 			ENDIF
 
-			DEALLOCATE(ecent,nodeSpacing,q,u,q0,M0,Mf,tmpErr)
+			DEALLOCATE(ecent,q,u,q0,M0,Mf,tmpErr,xQuad)
         ENDDO !p
+        DEALLOCATE(nodeSpacing,qNodes,qWeights,lagDeriv)
     ENDDO ! nmethod
+
+990    format(i6,3e12.4,3f5.2,3e12.4,f8.2,i8)
 
     END SUBROUTINE test1d_nodal
     
-    SUBROUTINE inits(ntest,q,u,nelem,dxel,N,ecent,qnodes,tfinal,cdf_out)
+    SUBROUTINE inits(ntest,q,u,xQuad,nelem,dxel,N,ecent,qnodes,tfinal,cdf_out)
         IMPLICIT NONE
         ! Inputs
         INTEGER, INTENT(IN) :: N,nelem,ntest
@@ -241,18 +245,18 @@ PROGRAM EXECUTE
 
         ! Outputs
         REAL(KIND=8), INTENT(OUT) :: tfinal
-        REAL(KIND=8), DIMENSION(0:N,1:nelem) :: q,u
+        REAL(KIND=8), DIMENSION(0:N,1:nelem), INTENT(OUT) :: q,u,xQuad
 		CHARACTER(LEN=40), INTENT(OUT) :: cdf_out
 
         ! Local Variables
-        REAL(KIND=8), DIMENSION(0:N,1:nelem) :: xQuad
-        REAL(KIND=8) :: PI,r
+        REAL(KIND=8), DIMENSION(0:N,1:nelem) :: r
+        REAL(KIND=8) :: PI
         INTEGER :: j
 
 		PI = DACOS(-1D0)
 
 		u = 1D0
-		tfinal = 10D0
+		tfinal = 1D0
 
 		DO j=1,nelem
 				xQuad(:,j) = ecent(j)+qnodes(:)*dxel/2D0
@@ -283,7 +287,7 @@ PROGRAM EXECUTE
                 END WHERE 
 
             CASE(4) ! cos**4
-				cdf_out = 'dg1d_cos2.nc'
+				cdf_out = 'dg1d_cos4.nc'
                 q = 0D0
                 r = 4D0*ABS(xQuad-0.25D0)
                 WHERE(r .lt. 1D0)
@@ -402,6 +406,5 @@ PROGRAM EXECUTE
 		start(2) = start(2) + 1 
 
 		DEALLOCATE(temp, STAT=ierr)
-
 	END SUBROUTINE output1d
 END PROGRAM EXECUTE
