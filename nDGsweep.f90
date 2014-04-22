@@ -26,6 +26,7 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt
     REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nelem) :: utmp
     REAL(KIND=DOUBLE), DIMENSION(0:1,0:nelem+1) :: edgeVals
     REAL(KIND=DOUBLE), DIMENSION(0:nelem) :: flx
+    REAL(KIND=DOUBLE), DIMENSION(0:nNodes) :: tmp
     INTEGER :: k,j,stage
 
     utmp(:,1:nelem) = u
@@ -40,7 +41,8 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt
         ! Forward Step
         DO j=1,nelem
             DO k=0,nNodes
-                qFwd(k,j) = qStar(k,j) + (dt/dxel)*dadt(quadVals(:,j),flx,u(:,j),qWeights,lagDeriv(k,:),k,j,nelem,nNodes)
+                tmp = lagDeriv(k,:)
+                qFwd(k,j) = qStar(k,j) + (dt/dxel)*dadt(quadVals(:,j),flx,u(:,j),qWeights,tmp,k,j,nelem,nNodes)
             ENDDO !k
         ENDDO ! j
 
@@ -53,6 +55,7 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt
 			qStar = q/3d0 + 2D0*qFwd/3D0
 		END SELECT
     ENDDO !stage
+999 continue
     q = qStar
 
 END SUBROUTINE nDGsweep
@@ -77,7 +80,7 @@ SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,nelem,nNodes,dozhangshu)
     quadVals = qIn
     
     edgeVals(0,1:nelem) = qIn(0,:) ! left edge value is just left-most coefficient
-    edgeVals(1,1:nelem) = qIn(1,:) ! right edge value is just right-most coefficient
+    edgeVals(1,1:nelem) = qIn(nNodes,:) ! right edge value is just right-most coefficient
 
     IF(dozhangshu) THEN
         ! To be filled in
@@ -120,9 +123,10 @@ REAL(KIND=8) FUNCTION dadt(quadVals,flx,u,qWeights,lagDeriv,k,j,nelem,nNodes)
 
     IF( k .eq. 0) THEN
         dadt = dadt + flx(j-1)
-    ELSEIF( k .eq. nNodes) THEN
+    ENDIF
+    IF( k .eq. nNodes) THEN
         dadt = dadt - flx(j)
     ENDIF
-
     dadt = 2D0*dadt/qWeights(k)
+
 END FUNCTION dadt

@@ -9,7 +9,7 @@ PROGRAM EXECUTE
 	INTEGER :: nout
 
 	start_res = 8
-	mu = 0.1D0
+	mu = 0.01D0
 	nout = 20
 
 	debug = .FALSE.
@@ -38,10 +38,10 @@ PROGRAM EXECUTE
 	write(*,*) '======'
 	CALL test1d_nodal(4,start_res,2,3,nout,mu,debug)
 
-!	write(*,*) '======'
-!	write(*,*) 'TEST 5: 2 sine waves'
-!	write(*,*) '======'
-!	CALL test1d_modal(5,start_res,2,3,nout,mu,debug)
+	write(*,*) '======'
+	write(*,*) 'TEST 5: 2 sine waves'
+	write(*,*) '======'
+	CALL test1d_nodal(5,start_res,2,3,nout,mu,debug)
 
 	WRITE(*,*)
 	WRITE(*,*) 'PROGRAM COMPLETE!'
@@ -79,7 +79,7 @@ PROGRAM EXECUTE
 
         PI = DACOS(-1D0)
 
-		if(nlvl.lt.1) STOP 'nlev should be at least 1 in test1d_modal'
+		if(nlvl.lt.1) STOP 'nlev should be at least 1 in test1d_nodal'
 
 		nmethod_final = 1
 		tmp_method = 0
@@ -171,7 +171,7 @@ PROGRAM EXECUTE
 			tmp_qmin = MINVAL(q0)
 
             DO l=1,nsteps
-!                CALL nDGsweep(q,nelem,dxel,N,qnodes,qweights,u,lagDeriv,dozshulimit,dt)
+                CALL nDGsweep(q,nelem,dxel,N,qnodes,qweights,u,lagDeriv,dozshulimit,dt)
                 t = t + dt
             
                 IF((MOD(l,nsteps/nout).eq.0).OR.(l.eq.nsteps)) THEN
