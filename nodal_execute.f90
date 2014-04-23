@@ -5,14 +5,15 @@ PROGRAM EXECUTE
     	INTEGER, PARAMETER :: DOUBLE=KIND(1D0)
 	INTEGER :: start_res,ntest
 	REAL(KIND=DOUBLE) :: mu
-	LOGICAL :: debug, dozshulimit
+	LOGICAL :: debug, dozshulimit, modalComparisonTest
 	INTEGER :: nout
 
 	start_res = 8
-	mu = 0.01D0
-	nout = 20
+	mu = 0.05D0
+	nout = 100
 
 	debug = .FALSE.
+    modalComparisonTest = .TRUE. ! Used to set time step same as modal test to make performance comparisons
 	dozshulimit = .FALSE.
 
 
@@ -142,6 +143,10 @@ PROGRAM EXECUTE
 			! Set up timestep
 			dxm = dxel*MINVAL(nodeSpacing)/2D0
 
+            IF(modalComparisonTest) THEN
+                dxm = dxel/DBLE(N+1)
+            ENDIF
+
 			IF(noutput .eq. -1) THEN
 				nsteps = CEILING( (tfinal/maxcfl)*(MAXVAL(DABS(u))/dxm) )
 				nout = nsteps
@@ -254,7 +259,7 @@ PROGRAM EXECUTE
 		PI = DACOS(-1D0)
 
 		u = 1D0
-		tfinal = 1D0
+		tfinal = 10D0
 
 		DO j=1,nelem
 				xQuad(:,j) = ecent(j)+qnodes(:)*dxel/2D0
