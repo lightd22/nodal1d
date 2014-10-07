@@ -5,7 +5,7 @@ FFLAGS=-g -C -O3 -ffree-form -fcheck=all -I/opt/local/include -fbounds-check
 FFLAGS2=$(FFLAGS)
 LDFLAGS=-L/opt/local/lib -lnetcdff -framework vecLib
 
-.PHONY: clean nodal test
+.PHONY: clean 1d_test test
 
 SOURCES= nDGmod.f90 nDGsweep.f90
 SOURCES2= nDGmod.f90
@@ -14,7 +14,7 @@ OBJECT2=$(SOURCES2:.f90=.o)
 
 all: $(SOURCES) nodal_test.out
 
-nodal: nodal_test.out
+1d_test: nodal_test.out
 	./nodal_test.out
 
 nodal_test.out: $(OBJECTS) nodal_execute.f90
