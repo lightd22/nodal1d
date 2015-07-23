@@ -30,6 +30,8 @@ all: $(SOURCES) nodal_test.out
 	cp screen.out _ndgzhshu/$(SUBDIR)
 	cp screen.out _matrunc/$(SUBDIR)
 
+output: nodal_test.out
+	./nodal_test.out
 
 nodal_test.out: $(MODOBJ) $(OBJECTS) nodal_execute.f90
 	$(F90) $(FFLAGS) $(MODOBJ) $(OBJECTS) nodal_execute.f90 -o $@ $(LDFLAGS)

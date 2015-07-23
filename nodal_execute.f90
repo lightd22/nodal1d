@@ -10,8 +10,8 @@ PROGRAM EXECUTE
   LOGICAL :: debug, doposlimit, modalComparisonTest,doConvergenceTest
   INTEGER :: nout,maxPolyDegree, ierr, whichTest, testEnd
 
-	start_res = 16
-  maxPolyDegree = 5
+	start_res = 8
+  maxPolyDegree = 4
 	nout = 1
 
 	debug = .FALSE.
@@ -49,15 +49,15 @@ PROGRAM EXECUTE
 !        muMAX  = 0.011D0
     END SELECT
   ELSE
-    muMAX = 9.D0
+    muMAX = 0.9D0
   ENDIF !modalComparisonTest
-  !muIn = 0.8*muMAX
-  muIn=1d0
+  muIn = 0.8*muMAX
+  !muIn=1d0
   !mu = 1D0/15D0
 
-  testEnd = 3
+  testEnd = 1
   ALLOCATE(testsVec(1:testEnd),STAT=ierr)
-  testsVec = (/ 2,3,4 /)
+  testsVec = (/ 4 /)
 
   write(*,*) '======================================================'
   write(*,*) '             BEGINNING RUN OF NODAL TESTS             '
@@ -131,11 +131,12 @@ PROGRAM EXECUTE
 		xRight = 1D0
 		domWidth = xRight - xLeft
 
-		nmethod_final = 3
+		nmethod_final = 4
 		tmp_method = 0
 		tmp_method(1) = 1
 		tmp_method(2) = 2
     tmp_method(3) = 3
+    tmp_method(4) = 4
 
 		DO nmethod=1,nmethod_final
 			doposlimit = .FALSE.
@@ -145,23 +146,32 @@ PROGRAM EXECUTE
 			SELECT CASE(imethod)
 				CASE(1)
           WRITE(*,'(A,I1)') ' 1D Nodal, No limiting, N=', N
-				  !outdir = '_ndgunlim/hrefine/'
-          write(outdir,'(A,I1,A)') '_ndgunlim/hrefine/n',N,'/'
+				  outdir = '_ndgunlim/'
+          !write(outdir,'(A,I1,A)') '_ndgunlim/hrefine/n',N,'/'
   	      doposlimit = .FALSE.
           nZSNodes = CEILING((N+3)/2.0)-1
 				CASE(2)
-          WRITE(*,'(A,I1)') ' 1D Nodal, Zhang and Shu Positivity limiting, N= ', N
-				  !outdir = '_ndgzhshu/hrefine/'
-          write(outdir,'(A,I1,A)') '_ndgzhshu/hrefine/n',N,'/'
+          WRITE(*,'(A,I1)') ' 1D Nodal, Minimal Node Zhang and Shu Positivity limiting, N= ', N
+				  outdir = '_ndgzhshu/min/'
+          !write(outdir,'(A,I1,A)') '_ndgzhshu/hrefine/n',N,'/'
 				  doposlimit = .TRUE.
-          limitingMeth = 2
-!          nZSNodes = CEILING((N+3)/2.0)-1
-          nZSNodes = maxPolyDegree
+          limitingMeth = 1
+          nZSNodes = CEILING((N+3)/2.0)-1
+!          nZSNodes = maxPolyDegree
           write(*,'(A,I1,A)') ' Uses ',nZSNodes+1,' GLL nodes for positivity rescaling.'
         CASE(3)
+          WRITE(*,'(A,I1)') ' 1D Nodal, Full Node Zhang and Shu Positivity limiting, N= ', N
+          outdir = '_ndgzhshu/full/'
+          !write(outdir,'(A,I1,A)') '_ndgzhshu/hrefine/n',N,'/'
+          doposlimit = .TRUE.
+          limitingMeth = 2
+          nZSNodes = CEILING((N+3)/2.0)-1
+!          nZSNodes = maxPolyDegree
+          write(*,'(A,I1,A)') ' Uses ',nZSNodes+1,' GLL nodes for positivity rescaling.'
+        CASE(4)
           WRITE(*,'(A,I1)') ' 1D Nodal, Mass-Aware Positivity limiting, N= ', N
-          !outdir = '_matrunc/hrefine/'
-          write(outdir,'(A,I1,A)') '_matrunc/hrefine/n',N,'/'
+          outdir = '_matrunc/'
+          !write(outdir,'(A,I1,A)') '_matrunc/hrefine/n',N,'/'
           doposlimit = .TRUE.
           limitingMeth = 3
           nZSNodes = maxPolyDegree
@@ -211,7 +221,7 @@ PROGRAM EXECUTE
 			! Initialize rhoq, u, and filenames
 			CALL inits(ntest,q,u,xQuad,nelem,dxel,N,ecent,qnodes,tfinal,cdf_out)
 			cdf_out = TRIM(outdir) // cdf_out
-      write(*,*) 'Full output path:',TRIM(cdf_out)
+      !write(*,*) 'Full output path:',TRIM(cdf_out)
       q0 = q
 
 			! Set up timestep
@@ -234,7 +244,7 @@ PROGRAM EXECUTE
 
 			dt = tfinal/DBLE(nsteps)
       mu = maxval(dabs(u))*dt/dxel
-      write(*,*) 'Mu used = ',mu
+      !write(*,*) 'Mu used = ',mu
 
 			IF(p .eq. 1) THEN ! Set up netCDF file
 				CALL output1d(q0,xQuad,qweights,qnodes,N,nelem,tfinal,mu,cdf_out,nout,-1)
@@ -262,23 +272,21 @@ PROGRAM EXECUTE
           CALL output1d(q,xQuad,qweights,qnodes,N,nelem,t,mu,cdf_out,p,2)
         ENDIF ! output check
 
-        ! Compute mass to test positivity in Z&S Limiter
-        IF(doposlimit) THEN
-          DO j=1,nelem
-            Mf(j) = 0.5D0*SUM(qWeights(:)*q(:,j))
+        ! Compute means to test positivity in Z&S Limiter
+        DO j=1,nelem
+          Mf(j) = 0.5D0*SUM(qWeights(:)*q(:,j))
 !                        qVals(0,j) = q(0,j)
 !                        qVals(nZSnodes,j) = q(N,j)
 !                        DO i=1,nZSnodes-1
 !                            qVals(i,j) = SUM(q(:,j)*lagValsZS(:,i))
 !                        ENDDO !l
 !                       Mf(j) = 0.5D0*SUM(quadZSWeights(:)*qVals(:,j))
-          ENDDO !j
-          minAVG = min(minAVG,minval(Mf))
+        ENDDO !j
+        minAVG = min(minAVG,minval(Mf))
 !                    IF(minAVG .lt. 0D0) THEN
 !                        write(*,'(A6,I4,A6)') 'After ',l,' steps'
 !                        write(*,'(A,E10.4)') 'minval =',minval(q)
 !                    ENDIF
-          ENDIF
 
           tmp_qmax = MAX(MAXVAL(q),tmp_qmax)
           tmp_qmin = MIN(MINVAL(q),tmp_qmin)
@@ -306,8 +314,8 @@ PROGRAM EXECUTE
       cons = SUM(Mf-M0)/DBLE(nelem)
 
 			if (p.eq.1) then
-			write(UNIT=6,FMT='(A116)') &
-'nex      E1        E2          Einf      convergence rate  overshoot  undershoot   cons      cputime   step     tf'
+			write(UNIT=6,FMT='(A128)') &
+'nex      E1        E2          Einf      convergence rate  overshoot  undershoot   cons      cputime   step     tf     minAVG'
 			cnvg1 = 0.d0
 			cnvg2 = 0.d0
 			cnvgi = 0.d0
@@ -320,11 +328,7 @@ PROGRAM EXECUTE
             cnvg1, cnvg2, cnvgi, &
             tmp_qmax-MAXVAL(q0), &
             MINVAL(q0)-tmp_qmin, &
-            cons, tf, nsteps,tfinal
-
-        IF(doposlimit .or. minAVG .lt. 0D0) THEN
-          write(*,*) 'Minimum Average in integration:',minAVG
-        ENDIF
+            cons, tf, nsteps,tfinal,minAVG
 
   			IF(p .eq. nlvl) THEN
   				CALL output1d(q,xQuad,qweights,qnodes,N,nelem,t,mu,cdf_out,p,1) ! Close netCDF files
@@ -337,7 +341,7 @@ PROGRAM EXECUTE
       DEALLOCATE(quadZSNodes,quadZSWeights,lambda,lagValsZS,STAT=ierr)
     ENDDO ! nmethod
 
-990    format(i6,3e12.4,3f5.2,3e12.4,f8.2,i8,f8.2)
+990    format(i6,3e12.4,3f5.2,3e12.4,f8.2,i8,f8.2,e12.4)
 
     END SUBROUTINE test1d_nodal
 

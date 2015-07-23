@@ -26,31 +26,32 @@ methods = { ...
           };
       
 res = {'1','2','3','4','5'};
-which_res = res(1);     
+which_res = res(3);     
 which_test = tests(1);
 ncfilename = strcat('dg1d_' ,which_test{1},'.nc');
 
 %% Cycle through methods
 
 stat        = 2;
-which_res   = res(5);
+which_res   = res(3);
 which_test  = tests(1);
+printExtrema = 1;
 
 for n=1:3
     if(n==1) 
         methname = 'Unlimited';
         nc = ['_ndgunlim/' ncfilename];
         file = ['figures/nodal/nod_' which_test{1}];
-        [nodal_unlim] = plot_1dadv(methname,nc,which_res,file,stat,0);
+        [nodal_unlim] = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
     elseif(n==2)
         methname = 'ZS Limited';
         nc = ['_ndgzhshu/' ncfilename];
         file = ['figures/zshu/zshu_' which_test{1}];
-        [nodal_shu] = plot_1dadv(methname,nc,which_res,file,stat,0);
+        [nodal_shu] = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
     elseif(n==3)
-        methname = 'MA Limited';
+        methname = 'TMAR Limited';
         nc =['_matrunc/' ncfilename];
-        nodal_ma = plot_1dadv(methname,nc,which_res,file,stat,0);
+        nodal_ma = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
     end
 end
 

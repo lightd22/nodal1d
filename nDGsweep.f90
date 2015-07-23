@@ -38,16 +38,28 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
     INTEGER :: k,j,stage,l,jstar
 
     INTERFACE
-      SUBROUTINE positivityLimit(qIn,qNodes,qWeights,nelem,nNodes,nQuad,lagVals)
-        ! Rescales polynomial so that nodal values are non-negative
-        USE testParameters, ONLY: limitingMeth
+      SUBROUTINE limitNodePositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
+        ! Modifies approximating polynomial so that nodal values are non-negative for output
+        USE testParameters
         IMPLICIT NONE
         ! Inputs
         INTEGER, INTENT(IN) :: nelem,nNodes,nQuad
         REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
-        REAL(KIND=8), DIMENSION(0:nQuad), INTENT(IN) :: qWeights,qNodes
-        REAL(KIND=8), DIMENSION(0:nNodes,0:nQuad), INTENT(IN) :: lagVals
-      END SUBROUTINE positivityLimit
+        REAL(KIND=8), DIMENSION(1:nelem), INTENT(IN) :: avgVals
+        REAL(KIND=8), DIMENSION(0:nQuad), INTENT(IN) :: qWeights
+      END SUBROUTINE limitNodePositivity
+
+      SUBROUTINE limitMeanPositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
+        ! Modifies approximating polynomial so that element mean value remains non-negative
+        ! according to Zhang and Shu (2010) Thm 2.2
+        USE testParameters
+        IMPLICIT NONE
+        ! Inputs
+        INTEGER, INTENT(IN) :: nelem,nNodes,nQuad
+        REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
+        REAL(KIND=8), DIMENSION(1:nelem), INTENT(IN) :: avgVals
+        REAL(KIND=8), DIMENSION(0:nQuad), INTENT(IN) :: qWeights
+      END SUBROUTINE limitMeanPositivity
     END INTERFACE
 
     jstar = -1
@@ -67,12 +79,13 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
             STOP
           ENDIF
         ENDDO
+        CALL limitMeanPositivity(qStar,avgVals,quadZSWeights,nelem,nNodes,nZSNodes)
 
-        IF(nZSnodes .eq. nNodes) THEN
-          CALL positivityLimit(qStar,qNodes,qWeights,nelem,nNodes,nNodes,lagValsZS)
-        ELSE
-          CALL positivityLimit(qStar,quadZSNodes,quadZSWeights,nelem,nNodes,nZSNodes,lagValsZS)
-        ENDIF
+!        IF(nZSnodes .eq. nNodes) THEN
+!          CALL positivityLimit(qStar,qNodes,qWeights,nelem,nNodes,nNodes,lagValsZS)
+!        ELSE
+!          CALL positivityLimit(qStar,quadZSNodes,quadZSWeights,nelem,nNodes,nZSNodes,lagValsZS)
+!        ENDIF
       ENDIF
         CALL evalExpansion(quadVals,edgeVals,qStar,nelem,nNodes)
         CALL numFlux(flx,edgeVals,utmp,nelem,nNodes)
@@ -100,12 +113,12 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
       DO j=1,nelem
         avgVals(j) = 0.5D0*SUM( qStar(:,j)*qWeights )
       ENDDO!j
-      
-      IF(nZSnodes .eq. nNodes) THEN
-        CALL positivityLimit(q,qNodes,qWeights,nelem,nNodes,nNodes,lagValsZS)
-      ELSE
-        CALL positivityLimit(q,quadZSNodes,quadZSWeights,nelem,nNodes,nZSNodes,lagValsZS)
-      ENDIF
+      CALL limitNodePositivity(qStar,avgVals,qWeights,nelem,nNodes,nNodes)
+!      IF(nZSnodes .eq. nNodes) THEN
+!        CALL positivityLimit(q,qNodes,qWeights,nelem,nNodes,nNodes,lagValsZS)
+!      ELSE
+!        CALL positivityLimit(q,quadZSNodes,quadZSWeights,nelem,nNodes,nZSNodes,lagValsZS)
+!      ENDIF
     ENDIF
 
     q = qStar
