@@ -3,27 +3,27 @@
 ! By: Devin Light 4/21/14
 ! -------------------------------------------------------------------------------
 
-SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt,&
+SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt,&
                     nZSNodes,quadZSNodes,quadZSWeights,lagValsZS)
     IMPLICIT NONE
     INTEGER, PARAMETER :: DOUBLE = KIND(1D0) ! Specification of DOUBLE
 
     ! External Functions
-	REAL(KIND=DOUBLE), EXTERNAL :: dadt ! RHS function for evolution ODE for kth expansion coefficent
+	  REAL(KIND=DOUBLE), EXTERNAL :: dadt ! RHS function for evolution ODE for kth expansion coefficent
 
     ! Inputs
     INTEGER, INTENT(IN) :: nelem,nNodes
     INTEGER, INTENT(IN) :: nZSNodes
-    LOGICAL, INTENT(IN) :: dozhangshu
+    LOGICAL, INTENT(IN) :: doposlimit
     REAL(KIND=DOUBLE), INTENT(IN) :: dxel,dt
     REAL(KIND=DOUBLE), DIMENSION(0:nNodes), INTENT(IN):: qNodes,qWeights
     REAL(KIND=DOUBLE), DIMENSION(0:nZSNodes), INTENT(IN) :: quadZSNodes,quadZSWeights
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nZSNodes-1), INTENT(IN) :: lagValsZS
+    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nZSNodes), INTENT(IN) :: lagValsZS
     REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nNodes), INTENT(IN) :: lagDeriv
     REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem), INTENT(IN) :: u
 
     ! Outputs
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: q 
+    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: q
 
     ! Local Variables
     REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem) :: qFwd,qStar,quadVals
@@ -31,7 +31,26 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt
     REAL(KIND=DOUBLE), DIMENSION(0:1,0:nelem+1) :: edgeVals
     REAL(KIND=DOUBLE), DIMENSION(0:nelem) :: flx
     REAL(KIND=DOUBLE), DIMENSION(0:nNodes) :: tmp
-    INTEGER :: k,j,stage
+
+    REAL(KIND=DOUBLE), DIMENSION(1:nelem) :: avgVals
+    REAL(KIND=DOUBLE), DIMENSION(0:nZSNodes) :: qVals
+
+    INTEGER :: k,j,stage,l,jstar
+
+    INTERFACE
+      SUBROUTINE positivityLimit(qIn,qNodes,qWeights,nelem,nNodes,nQuad,lagVals)
+        ! Rescales polynomial so that nodal values are non-negative
+        USE testParameters, ONLY: limitingMeth
+        IMPLICIT NONE
+        ! Inputs
+        INTEGER, INTENT(IN) :: nelem,nNodes,nQuad
+        REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
+        REAL(KIND=8), DIMENSION(0:nQuad), INTENT(IN) :: qWeights,qNodes
+        REAL(KIND=8), DIMENSION(0:nNodes,0:nQuad), INTENT(IN) :: lagVals
+      END SUBROUTINE positivityLimit
+    END INTERFACE
+
+    jstar = -1
 
     utmp(:,1:nelem) = u
     utmp(:,0) = u(:,nelem)
@@ -39,6 +58,22 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt
     qStar = q
     ! Do SSPRK3 Update
     DO stage=1,3
+      IF(doposlimit) THEN ! Rescale for element-mean positivity
+        DO j=1,nelem
+          avgVals(j) = 0.5D0*SUM( qStar(:,j)*qWeights )
+          IF(avgVals(j) .lt. 0D0) THEN
+            write(*,'(A,I2,A,I2,A,E10.4)') ' Average of element ', j,' is negative in stage ',stage, &
+                                           ' avgVal = ',avgVals(j)
+            STOP
+          ENDIF
+        ENDDO
+
+        IF(nZSnodes .eq. nNodes) THEN
+          CALL positivityLimit(qStar,qNodes,qWeights,nelem,nNodes,nNodes,lagValsZS)
+        ELSE
+          CALL positivityLimit(qStar,quadZSNodes,quadZSWeights,nelem,nNodes,nZSNodes,lagValsZS)
+        ENDIF
+      ENDIF
         CALL evalExpansion(quadVals,edgeVals,qStar,nelem,nNodes)
         CALL numFlux(flx,edgeVals,utmp,nelem,nNodes)
 
@@ -50,21 +85,29 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,dozhangshu,dt
             ENDDO !k
         ENDDO ! j
 
-		SELECT CASE(stage)
-		CASE(1)
-            q = qStar
-			qStar = qFwd
-		CASE(2)
-			qStar = 0.75D0*q + 0.25D0*qFwd
-		CASE(3)
-			qStar = q/3d0 + 2D0*qFwd/3D0
-		END SELECT
-        
-        IF(dozhangshu) THEN ! Rescale for positivity for next step
-            CALL polyMod(qStar,qNodes,qWeights,nelem,nNodes)
-!            CALL polyMod(qStar,quadZSNodes,quadZSWeights,nelem,nZSNodes)
-        ENDIF
+  		SELECT CASE(stage)
+  		CASE(1)
+  			qStar = qFwd
+  		CASE(2)
+  			qStar = 0.75D0*q + 0.25D0*qFwd
+  		CASE(3)
+  			qStar = q/3d0 + 2D0*qFwd/3D0
+  		END SELECT
     ENDDO !stage
+
+    ! After RK-update, rescale polynomial to remove all non-negatives
+    IF(doposlimit) THEN
+      DO j=1,nelem
+        avgVals(j) = 0.5D0*SUM( qStar(:,j)*qWeights )
+      ENDDO!j
+      
+      IF(nZSnodes .eq. nNodes) THEN
+        CALL positivityLimit(q,qNodes,qWeights,nelem,nNodes,nNodes,lagValsZS)
+      ELSE
+        CALL positivityLimit(q,quadZSNodes,quadZSWeights,nelem,nNodes,nZSNodes,lagValsZS)
+      ENDIF
+    ENDIF
+
     q = qStar
 
 END SUBROUTINE nDGsweep
@@ -85,7 +128,7 @@ SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,nelem,nNodes)
 
     ! Ansatz value at quad locations for the jth element is just coefficient value
     quadVals = qIn
-    
+
     edgeVals(0,1:nelem) = qIn(0,:) ! left edge value is just left-most coefficient
     edgeVals(1,1:nelem) = qIn(nNodes,:) ! right edge value is just right-most coefficient
 
@@ -95,31 +138,6 @@ SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,nelem,nNodes)
 
 END SUBROUTINE evalExpansion
 
-SUBROUTINE polyMod(qIn,qNodes,qWeights,nelem,nNodes)
-! Rescales DG polynomial around element averages for positivity, based on Zhang and Shu (2010)
-    IMPLICIT NONE
-    ! Inputs
-    INTEGER, INTENT(IN) :: nelem,nNodes
-    REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
-    REAL(KIND=8), DIMENSION(0:nNodes), INTENT(IN) :: qWeights,qNodes
-    ! Local Variables
-    INTEGER :: j
-    REAL(KIND=8) :: avgVal,theta,valMin,valMax
-
-    DO j=1,nelem
-        avgVal = 0.5D0*SUM( qWeights(:)*qIn(:,j) )
-        valMin = MINVAL(qIn(:,j))
-!       valMax = MAXVAL(qIn(:,j))
-
-        theta = MIN( abs(avgVal/(valMin-avgVal)),1D0 )
-!       theta = MIN( abs(avgVal/(valMin-avgVal)),abs((1D0-avgVal)/(valMax-avgVal)),1D0 )
-
-        qIn(:,j) = theta*(qIn(:,j)-avgVal) + avgVal
-    ENDDO !j
-    
-END SUBROUTINE polyMod
-
-
 SUBROUTINE numFlux(flx,edgeVals,uin,nelem,nNodes)
 	IMPLICIT NONE
 	INTEGER, PARAMETER :: DOUBLE = KIND(1D0)
@@ -128,7 +146,7 @@ SUBROUTINE numFlux(flx,edgeVals,uin,nelem,nNodes)
 	REAL(KIND=DOUBLE), DIMENSION(0:1,0:nelem+1), INTENT(IN) :: edgeVals
 	REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nelem), INTENT(IN) :: uin
 
-	! -- Outputs	
+	! -- Outputs
 	REAL(KIND=DOUBLE),DIMENSION(0:nelem), INTENT(OUT) :: flx
 
 	! -- Local variables

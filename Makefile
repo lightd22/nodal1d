@@ -7,18 +7,32 @@ LDFLAGS=-L/opt/local/lib -lnetcdff -framework vecLib
 
 .PHONY: clean 1d_test test
 
-SOURCES= nDGmod.f90 nDGsweep.f90
+SUBDIR = hrefine/n5/
+
+SOURCES= nDGsweep.f90 \
+				 positivityLimit.f90
+
+MODULES = testParameters.f90 \
+					nDGmod.f90
+
 SOURCES2= nDGmod.f90
+
 OBJECTS=$(SOURCES:.f90=.o)
+MODOBJ=$(MODULES:.f90=.o)
+
 OBJECT2=$(SOURCES2:.f90=.o)
 
 all: $(SOURCES) nodal_test.out
 
 1d_test: nodal_test.out
-	./nodal_test.out
+	./nodal_test.out 2>&1 | tee screen.out
+	cp screen.out _ndgunlim/$(SUBDIR)
+	cp screen.out _ndgzhshu/$(SUBDIR)
+	cp screen.out _matrunc/$(SUBDIR)
 
-nodal_test.out: $(OBJECTS) nodal_execute.f90
-	$(F90) $(FFLAGS) $(OBJECTS) nodal_execute.f90 -o $@ $(LDFLAGS) 
+
+nodal_test.out: $(MODOBJ) $(OBJECTS) nodal_execute.f90
+	$(F90) $(FFLAGS) $(MODOBJ) $(OBJECTS) nodal_execute.f90 -o $@ $(LDFLAGS)
 
 quadNodes: quadNodes.out
 	./quadNodes.out
@@ -31,4 +45,3 @@ clean:
 
 %.o : %.f90
 	$(F90) -c $(FFLAGS) $<
-
