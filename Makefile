@@ -10,7 +10,8 @@ LDFLAGS=-L/opt/local/lib -lnetcdff -framework vecLib
 SUBDIR = hrefine/n5/
 
 SOURCES= nDGsweep.f90 \
-				 positivityLimit.f90
+				 positivityLimit.f90 \
+				 evalFluxes.f90
 
 MODULES = testParameters.f90 \
 					nDGmod.f90

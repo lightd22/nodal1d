@@ -15,9 +15,9 @@ PROGRAM EXECUTE
 	nout = 1
 
 	debug = .FALSE.
-  doConvergenceTest = .TRUE.
+  doConvergenceTest = .FALSE.
 	doposlimit = .FALSE.
-  modalComparisonTest = .false. ! Used to set time step same as modal test to make performance comparisons
+  modalComparisonTest = .TRUE. ! Used to set time step same as modal test to make performance comparisons
   IF(modalComparisonTEST) THEN
     SELECT CASE(maxPolyDegree)
       CASE(2)
@@ -51,7 +51,7 @@ PROGRAM EXECUTE
   ELSE
     muMAX = 0.9D0
   ENDIF !modalComparisonTest
-  muIn = 0.8*muMAX
+  muIn = 1.0*muMAX
   !muIn=1d0
   !mu = 1D0/15D0
 
@@ -135,13 +135,15 @@ PROGRAM EXECUTE
 		tmp_method = 0
 		tmp_method(1) = 1
 		tmp_method(2) = 2
-    tmp_method(3) = 3
-    tmp_method(4) = 4
+    tmp_method(3) = 4
+    tmp_method(4) = 5
 
 		DO nmethod=1,nmethod_final
 			doposlimit = .FALSE.
+      dofct = .FALSE.
 			imethod = tmp_method(nmethod)
       N = maxPolyDegree
+      limitingMeth = 0
       write(*,*) '===='
 			SELECT CASE(imethod)
 				CASE(1)
@@ -169,13 +171,22 @@ PROGRAM EXECUTE
 !          nZSNodes = maxPolyDegree
           write(*,'(A,I1,A)') ' Uses ',nZSNodes+1,' GLL nodes for positivity rescaling.'
         CASE(4)
-          WRITE(*,'(A,I1)') ' 1D Nodal, Mass-Aware Positivity limiting, N= ', N
+          WRITE(*,'(A,I1)') ' 1D Nodal, ZS Mean Rescale + Mass-Aware Positivity limiting, N= ', N
           outdir = '_matrunc/'
           !write(outdir,'(A,I1,A)') '_matrunc/hrefine/n',N,'/'
           doposlimit = .TRUE.
           limitingMeth = 3
-          nZSNodes = maxPolyDegree
+          nZSNodes = CEILING((N+3)/2.0)-1
+        CASE(5)
+          WRITE(*,'(A,I1)') ' 1D Nodal, FCT + Mass-Aware Positivity limiting, N= ', N
+          outdir = '_tmarFCT/'
+          doposlimit = .TRUE.
+          doFCT = .TRUE.
+          limitingMeth = 4
+!          nZSNodes = maxPolyDegree
+          nZSNodes = CEILING((N+3)/2.0)-1
 			END SELECT
+      write(*,'(A,I1)') ' LimitingMeth = ', limitingMeth
       write(*,*) '===='
     WRITE(*,*) 'Outputting to:',TRIM(outdir)
 		ALLOCATE(qnodes(0:N),qweights(0:N),lagDeriv(0:N,0:N),nodeSpacing(0:N-1),STAT=ierr)
@@ -188,15 +199,15 @@ PROGRAM EXECUTE
 
     lagValsZS = 0D0
     IF(doposlimit) THEN
-    		CALL gllquad_nodes(nZSNodes,quadZSNodes)
-      	CALL gllquad_weights(nZSNodes,quadZSNodes,quadZSWeights)
+  		CALL gllquad_nodes(nZSNodes,quadZSNodes)
+    	CALL gllquad_weights(nZSNodes,quadZSNodes,quadZSWeights)
 
-        ! -- Evaluate Basis polynomials at quad nodes for Zhang & Shu positivity limiting (edge nodes fixed at -1 and +1)
-        DO k=0,N
-            DO l=0,nZSNodes
-                lagValsZS(k,l) = lagrange(quadZSNodes(l),k,N,qNodes,lambda)
-            ENDDO!l
-        ENDDO!k
+      ! -- Evaluate Basis polynomials at quad nodes for Zhang & Shu positivity limiting (edge nodes fixed at -1 and +1)
+      DO k=0,N
+        DO l=0,nZSNodes
+          lagValsZS(k,l) = lagrange(quadZSNodes(l),k,N,qNodes,lambda)
+        ENDDO!l
+      ENDDO!k
     ENDIF
     nodeSpacing = qnodes(1:N)-qnodes(0:N-1)
 
@@ -209,7 +220,7 @@ PROGRAM EXECUTE
 			nelem = nex0*nscale**(p-1)
 
 			ALLOCATE(ecent(1:nelem),M0(1:nelem),Mf(1:nelem),q0(0:N,1:nelem),q(0:N,1:nelem),u(0:N,1:nelem),xQuad(0:N,1:nelem))
-            ALLOCATE(qVals(0:nZSnodes,1:nelem))
+      ALLOCATE(qVals(0:nZSnodes,1:nelem))
 
 			! -- Set up x-grid via elements
 			dxel = domWidth/DBLE(nelem)

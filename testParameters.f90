@@ -5,6 +5,7 @@ MODULE testParameters
   ! ========================================================================
   IMPLICIT NONE
   INTEGER :: limitingMeth
+  LOGICAL :: doFCT
   SAVE
 
 END MODULE testParameters

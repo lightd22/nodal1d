@@ -24,7 +24,7 @@ SUBROUTINE limitNodePositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
       ! -- Rescale polynomial
       qIn(:,j) = theta*(qIn(:,j)-avg) + avg
     ENDDO!j
-  CASE(3)
+  CASE(3:4)
     ! Use "mass aware truncation" for for polynomial modification
     DO j=1,nelem
       Mp = 0D0
@@ -38,6 +38,9 @@ SUBROUTINE limitNodePositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
       theta = MAX(Mt,0D0)/MAX(Mp,TINY(1D0))
       qIn(:,j) = theta*qIn(:,j) ! Reduce remaining positive nodes by reduction factor
     ENDDO !j
+  CASE DEFAULT
+    ! Do not rescale polynomial
+
   END SELECT !limitingMeth
 END SUBROUTINE limitNodePositivity
 
@@ -58,17 +61,20 @@ SUBROUTINE limitMeanPositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
   eps = epsilon(1d0)
   DO j=1,nelem
     avg = avgVals(j)
-    
+
     SELECT CASE(limitingMeth)
-      CASE(2)
-        ! Use all points to determine new rescaling
-        valMin = MINVAL(qIn(:,j))-eps
-      CASE DEFAULT
+      CASE(1,3)
         ! Compute 'magic point' value from Zhang and Shu 2011: Survey and New Developments
         qStar = avg-qWeights(0)*qIn(0,j)-qWeights(0)*qIn(nNodes,j)
         qStar = qStar/(1D0-2D0*qWeights(0))
 
         valMin = MIN(qStar,qIn(0,j),qIn(nNodes,j))-eps
+      CASE(2)
+        ! Use all points to determine new rescaling
+        valMin = MINVAL(qIn(:,j))-eps
+      CASE DEFAULT
+        ! Do nothing
+        RETURN
     END SELECT !limitingMeth
 
     ! Compute rescaling factor

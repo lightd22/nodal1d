@@ -32,10 +32,11 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
     REAL(KIND=DOUBLE), DIMENSION(0:nelem) :: flx
     REAL(KIND=DOUBLE), DIMENSION(0:nNodes) :: tmp
 
-    REAL(KIND=DOUBLE), DIMENSION(1:nelem) :: avgVals
+    REAL(KIND=DOUBLE), DIMENSION(1:nelem) :: avgVals,prevAvg
     REAL(KIND=DOUBLE), DIMENSION(0:nZSNodes) :: qVals
 
     INTEGER :: k,j,stage,l,jstar
+    LOGICAL :: stopFlag = .FALSE.
 
     INTERFACE
       SUBROUTINE limitNodePositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
@@ -60,6 +61,24 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
         REAL(KIND=8), DIMENSION(1:nelem), INTENT(IN) :: avgVals
         REAL(KIND=8), DIMENSION(0:nQuad), INTENT(IN) :: qWeights
       END SUBROUTINE limitMeanPositivity
+
+      SUBROUTINE evalFluxes(flx,elemAvg,edgeVals,uin,nelem,nNodes,dt,dx,coeffs)
+        ! ------------------------------------------
+        !
+        ! ------------------------------------------
+        USE testParameters
+        IMPLICIT NONE
+        ! Inputs
+        INTEGER, INTENT(IN) :: nelem,nNodes
+        DOUBLE PRECISION, INTENT(IN) :: dt,dx
+        DOUBLE PRECISION, DIMENSION(0:1,0:nelem+1), INTENT(IN) :: edgeVals
+        DOUBLE PRECISION, DIMENSION(0:nNodes,0:nelem), INTENT(IN) :: uin
+        DOUBLE PRECISION, DIMENSION(1:nelem), INTENT(IN) :: elemAvg
+        ! Outputs
+        DOUBLE PRECISION, DIMENSION(0:nelem), INTENT(OUT) :: flx
+        DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: coeffs
+
+      END SUBROUTINE evalFluxes
     END INTERFACE
 
     jstar = -1
@@ -74,29 +93,26 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
         DO j=1,nelem
           avgVals(j) = 0.5D0*SUM( qStar(:,j)*qWeights )
           IF(avgVals(j) .lt. 0D0) THEN
-            write(*,'(A,I2,A,I2,A,E10.4)') ' Average of element ', j,' is negative in stage ',stage, &
+            write(*,'(A,I2,A,I2,A,E10.4)') ' Average of element ', j,&
+                                           ' is negative in stage ',stage, &
                                            ' avgVal = ',avgVals(j)
             STOP
           ENDIF
-        ENDDO
+        ENDDO !j
+
         CALL limitMeanPositivity(qStar,avgVals,quadZSWeights,nelem,nNodes,nZSNodes)
-
-!        IF(nZSnodes .eq. nNodes) THEN
-!          CALL positivityLimit(qStar,qNodes,qWeights,nelem,nNodes,nNodes,lagValsZS)
-!        ELSE
-!          CALL positivityLimit(qStar,quadZSNodes,quadZSWeights,nelem,nNodes,nZSNodes,lagValsZS)
-!        ENDIF
       ENDIF
-        CALL evalExpansion(quadVals,edgeVals,qStar,nelem,nNodes)
-        CALL numFlux(flx,edgeVals,utmp,nelem,nNodes)
+      CALL evalExpansion(quadVals,edgeVals,qStar,nelem,nNodes)
+      CALL evalFluxes(flx,avgVals,edgeVals,utmp,nelem,nNodes,dt,dxel,qStar)
+      !CALL numFlux(flx,edgeVals,utmp,nelem,nNodes)
 
-        ! Forward Step
-        DO j=1,nelem
-            DO k=0,nNodes
-                tmp = lagDeriv(k,:)
-                qFwd(k,j) = qStar(k,j) + (dt/dxel)*dadt(quadVals(:,j),flx,utmp(:,j),qWeights,tmp,k,j,nelem,nNodes)
-            ENDDO !k
-        ENDDO ! j
+      ! Forward Step
+      DO j=1,nelem
+        DO k=0,nNodes
+          tmp = lagDeriv(k,:)
+          qFwd(k,j) = qStar(k,j) + (dt/dxel)*dadt(quadVals(:,j),flx,utmp(:,j),qWeights,tmp,k,j,nelem,nNodes)
+        ENDDO !k
+      ENDDO ! j
 
   		SELECT CASE(stage)
   		CASE(1)
@@ -106,6 +122,34 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
   		CASE(3)
   			qStar = q/3d0 + 2D0*qFwd/3D0
   		END SELECT
+
+      IF(doposlimit) THEN
+        prevAvg = avgVals
+        DO j=1,nelem
+          avgVals(j) = 0.5*SUM(qStar(:,j)*qWeights)
+
+          IF(avgVals(j) .lt. 0d0) THEN
+            write(*,'(A,I2,A,I2)') 'Average of element',j,' is negative after stage',stage
+            write(*,'(A,E10.4)') 'Previous average=',prevAvg(j)
+!            write(*,'(A,E10.4)') 'permissableFlux=',prevAvg(j)*dxel/dt
+!            write(*,'(A,E10.4)') 'estimated new avg=',prevAvg(j)-dt/dxel*(flx(j)-flx(j-1))
+            write(*,'(A,E10.4)') 'Post average=',avgVals(j)
+            write(*,'(A,E10.4)') 'error in average=',avgVals(j)-(prevAvg(j)-dt/dxel*(flx(j)-flx(j-1)))
+!            write(*,'(A,E10.4)') 'fluxL=',flx(j-1)
+!            write(*,'(A,E10.4)') 'fluxR=',flx(j)
+!            write(*,*) 0.5*qStar(:,j)*qWeights
+!            write(*,*) 'massChg=',avgVals(j)-prevAvg(j)
+!            write(*,*) 'fluxUpdate=',-(dt/dxel)*(flx(j)-flx(j-1))
+            stopFlag = .TRUE.
+          ENDIF
+
+        ENDDO
+        IF(stopFlag) THEN
+          write(*,*) 'S T O P P I N G...'
+          STOP
+        ENDIF
+      ENDIF
+
     ENDDO !stage
 
     ! After RK-update, rescale polynomial to remove all non-negatives
@@ -113,14 +157,8 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
       DO j=1,nelem
         avgVals(j) = 0.5D0*SUM( qStar(:,j)*qWeights )
       ENDDO!j
-      CALL limitNodePositivity(qStar,avgVals,qWeights,nelem,nNodes,nNodes)
-!      IF(nZSnodes .eq. nNodes) THEN
-!        CALL positivityLimit(q,qNodes,qWeights,nelem,nNodes,nNodes,lagValsZS)
-!      ELSE
-!        CALL positivityLimit(q,quadZSNodes,quadZSWeights,nelem,nNodes,nZSNodes,lagValsZS)
-!      ENDIF
+!      CALL limitNodePositivity(qStar,avgVals,qWeights,nelem,nNodes,nNodes)
     ENDIF
-
     q = qStar
 
 END SUBROUTINE nDGsweep
