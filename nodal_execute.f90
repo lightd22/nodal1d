@@ -3,10 +3,9 @@ PROGRAM EXECUTE
   USE netcdf
   USE testParameters
   IMPLICIT NONE
-  INTEGER, PARAMETER :: DOUBLE=KIND(1D0)
   INTEGER :: start_res,ntest
   INTEGER, ALLOCATABLE, DIMENSION(:) :: testsVec
-  REAL(KIND=DOUBLE) :: muMAX,muIn
+  DOUBLE PRECISION :: muMAX,muIn
   LOGICAL :: debug, doposlimit, modalComparisonTest,doConvergenceTest
   INTEGER :: nout,maxPolyDegree, ierr, whichTest, testEnd
 
@@ -93,27 +92,27 @@ PROGRAM EXECUTE
 		IMPLICIT NONE
 		! -- Inputs
 		INTEGER, INTENT(IN) :: nex0,ntest,nscale,nlvl,noutput,maxPolyDegree
-		REAL(KIND=DOUBLE), INTENT(IN) :: maxcfl
+		DOUBLE PRECISION, INTENT(IN) :: maxcfl
 		LOGICAL, INTENT(IN) :: debug
 
 		! -- Local variables
-    REAL(KIND=8), DIMENSION(nlvl) :: e1, e2, ei
-		REAL(KIND=8) :: cnvg1, cnvg2, cnvgi,tfinal, cons
+    DOUBLE PRECISION, DIMENSION(nlvl) :: e1, e2, ei
+		DOUBLE PRECISION :: cnvg1, cnvg2, cnvgi,tfinal, cons
 		INTEGER :: nsteps, nxfv, nmethod_final, nmethod, imethod, nelem,nout, N, ierr,nZSNodes
 		LOGICAL :: doposlimit
 		INTEGER, DIMENSION(10) :: tmp_method
 		CHARACTER(len=40) :: outdir,cdf_out
 
-		REAL(KIND=8) :: xLeft,xRight,domWidth,minAVG,mu
+		DOUBLE PRECISION :: xLeft,xRight,domWidth,minAVG,mu
 
-		REAL(KIND=DOUBLE), DIMENSION(:), ALLOCATABLE :: qNodes,qWeights,ecent,nodeSpacing,tmpErr,quadZSNodes,quadZSWeights, &
+		DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: qNodes,qWeights,ecent,nodeSpacing,tmpErr,quadZSNodes,quadZSWeights, &
                                                         lambda
-		REAL(KIND=DOUBLE), DIMENSION(:,:), ALLOCATABLE :: lagDeriv,lagValsZS
-		REAL(KIND=DOUBLE), ALLOCATABLE, DIMENSION(:,:) :: q0,q,u,xQuad,qVals
-		REAL(KIND=DOUBLE), DIMENSION(:), ALLOCATABLE :: M0,Mf
+		DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: lagDeriv,lagValsZS
+		DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:) :: q0,q,u,xQuad,qVals
+		DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: M0,Mf
 
-		REAL(KIND=DOUBLE) :: dxel, PI, dt,t,dxm
-		REAL(KIND=8) :: tmp_qmax,tmp_qmin
+		DOUBLE PRECISION :: dxel, PI, dt,t,dxm
+		DOUBLE PRECISION :: tmp_qmax,tmp_qmin
 		REAL(KIND=4) :: t0,tf
 		REAL(KIND=4), DIMENSION(2) :: tstart,tend
 
@@ -360,18 +359,18 @@ PROGRAM EXECUTE
       IMPLICIT NONE
       ! Inputs
       INTEGER, INTENT(IN) :: N,nelem,ntest
-      REAL(KIND=8), INTENT(IN) :: dxel
-      REAL(KIND=8), DIMENSION(1:nelem), INTENT(IN) :: ecent
-      REAL(KIND=8), DIMENSION(0:N), INTENT(IN) :: qnodes
+      DOUBLE PRECISION, INTENT(IN) :: dxel
+      DOUBLE PRECISION, DIMENSION(1:nelem), INTENT(IN) :: ecent
+      DOUBLE PRECISION, DIMENSION(0:N), INTENT(IN) :: qnodes
 
       ! Outputs
-      REAL(KIND=8), INTENT(OUT) :: tfinal
-      REAL(KIND=8), DIMENSION(0:N,1:nelem), INTENT(OUT) :: q,u,xQuad
+      DOUBLE PRECISION, INTENT(OUT) :: tfinal
+      DOUBLE PRECISION, DIMENSION(0:N,1:nelem), INTENT(OUT) :: q,u,xQuad
       CHARACTER(LEN=40), INTENT(OUT) :: cdf_out
 
       ! Local Variables
-      REAL(KIND=8), DIMENSION(0:N,1:nelem) :: r
-      REAL(KIND=8) :: PI
+      DOUBLE PRECISION, DIMENSION(0:N,1:nelem) :: r
+      DOUBLE PRECISION :: PI
       INTEGER :: j
 
 	    PI = DACOS(-1D0)
@@ -427,9 +426,9 @@ PROGRAM EXECUTE
 		! inputs
 		INTEGER, INTENT(IN) :: N,nelem,ilvl,stat
 		CHARACTER(len=40), INTENT(IN) :: cdf_out
-		REAL(KIND=8), INTENT(IN) :: tval_in,mu
-		REAL(KIND=8), DIMENSION(0:N,1:nelem), INTENT(IN) :: x,q
-		REAL(KIND=8), DIMENSION(0:N), INTENT(IN) :: wghts,nodes
+		DOUBLE PRECISION, INTENT(IN) :: tval_in,mu
+		DOUBLE PRECISION, DIMENSION(0:N,1:nelem), INTENT(IN) :: x,q
+		DOUBLE PRECISION, DIMENSION(0:N), INTENT(IN) :: wghts,nodes
 
 		! outputs
 
@@ -442,7 +441,7 @@ PROGRAM EXECUTE
 		INTEGER, DIMENSION(1:NDIMS) :: start, count
 		CHARACTER(len=8) :: nxname,xname,qname,muname
 
-		REAL(KIND=8), ALLOCATABLE, DIMENSION(:) :: tmp,temp
+		DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: tmp,temp
 		INTEGER :: i,j,nxout
 
 	    SAVE cdfid, idq, t_dimid, start, count

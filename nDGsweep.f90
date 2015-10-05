@@ -5,38 +5,38 @@
 
 SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt,&
                     nZSNodes,quadZSNodes,quadZSWeights,lagValsZS)
+    USE testParameters, ONLY: dofct
     IMPLICIT NONE
-    INTEGER, PARAMETER :: DOUBLE = KIND(1D0) ! Specification of DOUBLE
-
     ! External Functions
-	  REAL(KIND=DOUBLE), EXTERNAL :: dadt ! RHS function for evolution ODE for kth expansion coefficent
+	  DOUBLE PRECISION, EXTERNAL :: dadt ! RHS function for evolution ODE for kth expansion coefficent
 
     ! Inputs
     INTEGER, INTENT(IN) :: nelem,nNodes
     INTEGER, INTENT(IN) :: nZSNodes
     LOGICAL, INTENT(IN) :: doposlimit
-    REAL(KIND=DOUBLE), INTENT(IN) :: dxel,dt
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes), INTENT(IN):: qNodes,qWeights
-    REAL(KIND=DOUBLE), DIMENSION(0:nZSNodes), INTENT(IN) :: quadZSNodes,quadZSWeights
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nZSNodes), INTENT(IN) :: lagValsZS
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nNodes), INTENT(IN) :: lagDeriv
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem), INTENT(IN) :: u
+    DOUBLE PRECISION, INTENT(IN) :: dxel,dt
+    DOUBLE PRECISION, DIMENSION(0:nNodes), INTENT(IN):: qNodes,qWeights
+    DOUBLE PRECISION, DIMENSION(0:nZSNodes), INTENT(IN) :: quadZSNodes,quadZSWeights
+    DOUBLE PRECISION, DIMENSION(0:nNodes,0:nZSNodes), INTENT(IN) :: lagValsZS
+    DOUBLE PRECISION, DIMENSION(0:nNodes,0:nNodes), INTENT(IN) :: lagDeriv
+    DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(IN) :: u
 
     ! Outputs
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: q
+    DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: q
 
     ! Local Variables
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,1:nelem) :: qFwd,qStar,quadVals
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nelem) :: utmp
-    REAL(KIND=DOUBLE), DIMENSION(0:1,0:nelem+1) :: edgeVals
-    REAL(KIND=DOUBLE), DIMENSION(0:nelem) :: flx
-    REAL(KIND=DOUBLE), DIMENSION(0:nNodes) :: tmp
+    DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem) :: qFwd,qStar,quadVals
+    DOUBLE PRECISION, DIMENSION(0:nNodes,0:nelem) :: utmp
+    DOUBLE PRECISION, DIMENSION(0:1,0:nelem+1) :: edgeVals
+    DOUBLE PRECISION, DIMENSION(0:nelem) :: flx
+    DOUBLE PRECISION, DIMENSION(0:nNodes) :: tmp
 
-    REAL(KIND=DOUBLE), DIMENSION(1:nelem) :: avgVals,prevAvg
-    REAL(KIND=DOUBLE), DIMENSION(0:nZSNodes) :: qVals
+    DOUBLE PRECISION, DIMENSION(1:nelem) :: avgVals,prevAvg
+    DOUBLE PRECISION, DIMENSION(0:nZSNodes) :: qVals
 
-    INTEGER :: k,j,stage,l,jstar
+    INTEGER :: k,j,stage,l
     LOGICAL :: stopFlag = .FALSE.
+    DOUBLE PRECISION :: projAvg,actAvg
 
     INTERFACE
       SUBROUTINE limitNodePositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
@@ -45,9 +45,9 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
         IMPLICIT NONE
         ! Inputs
         INTEGER, INTENT(IN) :: nelem,nNodes,nQuad
-        REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
-        REAL(KIND=8), DIMENSION(1:nelem), INTENT(IN) :: avgVals
-        REAL(KIND=8), DIMENSION(0:nQuad), INTENT(IN) :: qWeights
+        DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
+        DOUBLE PRECISION, DIMENSION(1:nelem), INTENT(IN) :: avgVals
+        DOUBLE PRECISION, DIMENSION(0:nQuad), INTENT(IN) :: qWeights
       END SUBROUTINE limitNodePositivity
 
       SUBROUTINE limitMeanPositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
@@ -57,9 +57,9 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
         IMPLICIT NONE
         ! Inputs
         INTEGER, INTENT(IN) :: nelem,nNodes,nQuad
-        REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
-        REAL(KIND=8), DIMENSION(1:nelem), INTENT(IN) :: avgVals
-        REAL(KIND=8), DIMENSION(0:nQuad), INTENT(IN) :: qWeights
+        DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
+        DOUBLE PRECISION, DIMENSION(1:nelem), INTENT(IN) :: avgVals
+        DOUBLE PRECISION, DIMENSION(0:nQuad), INTENT(IN) :: qWeights
       END SUBROUTINE limitMeanPositivity
 
       SUBROUTINE evalFluxes(flx,elemAvg,edgeVals,uin,nelem,nNodes,dt,dx,coeffs)
@@ -79,29 +79,41 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
         DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: coeffs
 
       END SUBROUTINE evalFluxes
-    END INTERFACE
 
-    jstar = -1
+      SUBROUTINE computeAverages(avgs,coeffs,quadWeights,nelem,nNodes)
+        IMPLICIT NONE
+        ! Inputs
+        INTEGER, INTENT(IN) :: nelem,nNodes
+        DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(IN) :: coeffs
+        DOUBLE PRECISION, DIMENSION(0:nNodes), INTENT(IN) :: quadWeights
+        ! Outputs
+        DOUBLE PRECISION, DIMENSION(1:nelem), INTENT(OUT) :: avgs
+      END SUBROUTINE computeAverages
+    END INTERFACE
 
     utmp(:,1:nelem) = u
     utmp(:,0) = u(:,nelem)
 
     qStar = q
-    ! Do SSPRK3 Update
+    CALL computeAverages(prevAvg,qStar,qWeights,nelem,nNodes)
+    avgVals = prevAvg
+    ! SSPRK3 Update
     DO stage=1,3
-      IF(doposlimit) THEN ! Rescale for element-mean positivity
+
+      ! Rescale for element-mean positivity (if necessary)
+      IF(doposlimit) THEN
         DO j=1,nelem
           avgVals(j) = 0.5D0*SUM( qStar(:,j)*qWeights )
           IF(avgVals(j) .lt. 0D0) THEN
-            write(*,'(A,I2,A,I2,A,E10.4)') ' Average of element ', j,&
+            write(*,'(A,I2,A,I2,A,D10.4)') ' Average of element ', j,&
                                            ' is negative in stage ',stage, &
                                            ' avgVal = ',avgVals(j)
-            STOP
+            stopFlag = .TRUE.
           ENDIF
         ENDDO !j
-
         CALL limitMeanPositivity(qStar,avgVals,quadZSWeights,nelem,nNodes,nZSNodes)
       ENDIF
+
       CALL evalExpansion(quadVals,edgeVals,qStar,nelem,nNodes)
       CALL evalFluxes(flx,avgVals,edgeVals,utmp,nelem,nNodes,dt,dxel,qStar)
       !CALL numFlux(flx,edgeVals,utmp,nelem,nNodes)
@@ -110,8 +122,12 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
       DO j=1,nelem
         DO k=0,nNodes
           tmp = lagDeriv(k,:)
-          qFwd(k,j) = qStar(k,j) + (dt/dxel)*dadt(quadVals(:,j),flx,utmp(:,j),qWeights,tmp,k,j,nelem,nNodes)
+          qFwd(k,j) = qStar(k,j) + dt*dadt(quadVals(:,j),flx,utmp(:,j),qWeights,tmp,k,j,nelem,nNodes)/dxel
         ENDDO !k
+        qFwd(0,j) = qFwd(0,j)+2D0*dt*flx(j-1)/qWeights(0)/dxel
+        qFwd(nNodes,j) = qFwd(nNodes,j)-2D0*dt*flx(j)/qWeights(nNodes)/dxel
+        ! Track change to averages
+        avgVals(j) = avgVals(j)-(dt/dxel)*(flx(j)-flx(j-1))
       ENDDO ! j
 
   		SELECT CASE(stage)
@@ -119,37 +135,29 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
   			qStar = qFwd
   		CASE(2)
   			qStar = 0.75D0*q + 0.25D0*qFwd
+        avgVals = 0.75D0*prevAvg+0.25D0*avgVals
   		CASE(3)
-  			qStar = q/3d0 + 2D0*qFwd/3D0
+  			qStar = q/3D0 + 2D0*qFwd/3D0
+        avgVals = prevAvg/3D0+2D0*avgVals/3D0
   		END SELECT
 
       IF(doposlimit) THEN
-        prevAvg = avgVals
         DO j=1,nelem
-          avgVals(j) = 0.5*SUM(qStar(:,j)*qWeights)
-
+!          avgVals(j) = 0.5D0*SUM(qStar(:,j)*qWeights)
           IF(avgVals(j) .lt. 0d0) THEN
             write(*,'(A,I2,A,I2)') 'Average of element',j,' is negative after stage',stage
-            write(*,'(A,E10.4)') 'Previous average=',prevAvg(j)
-!            write(*,'(A,E10.4)') 'permissableFlux=',prevAvg(j)*dxel/dt
-!            write(*,'(A,E10.4)') 'estimated new avg=',prevAvg(j)-dt/dxel*(flx(j)-flx(j-1))
-            write(*,'(A,E10.4)') 'Post average=',avgVals(j)
-            write(*,'(A,E10.4)') 'error in average=',avgVals(j)-(prevAvg(j)-dt/dxel*(flx(j)-flx(j-1)))
-!            write(*,'(A,E10.4)') 'fluxL=',flx(j-1)
-!            write(*,'(A,E10.4)') 'fluxR=',flx(j)
-!            write(*,*) 0.5*qStar(:,j)*qWeights
-!            write(*,*) 'massChg=',avgVals(j)-prevAvg(j)
-!            write(*,*) 'fluxUpdate=',-(dt/dxel)*(flx(j)-flx(j-1))
+            write(*,'(A,D10.4)') 'Problem average=',avgVals(j)
             stopFlag = .TRUE.
           ENDIF
-
-        ENDDO
-        IF(stopFlag) THEN
-          write(*,*) 'S T O P P I N G...'
-          STOP
-        ENDIF
+        ENDDO !j
       ENDIF
 
+      IF(stopFlag) THEN
+        write(*,*) '********* CRITICAL ERROR *********'
+        write(*,*) 'S T O P P I N G...'
+        write(*,*) '********* CRITICAL ERROR *********'
+        STOP
+      ENDIF
     ENDDO !stage
 
     ! After RK-update, rescale polynomial to remove all non-negatives
@@ -157,7 +165,7 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
       DO j=1,nelem
         avgVals(j) = 0.5D0*SUM( qStar(:,j)*qWeights )
       ENDDO!j
-!      CALL limitNodePositivity(qStar,avgVals,qWeights,nelem,nNodes,nNodes)
+      CALL limitNodePositivity(qStar,avgVals,qWeights,nelem,nNodes,nNodes)
     ENDIF
     q = qStar
 
@@ -169,11 +177,11 @@ SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,nelem,nNodes)
     IMPLICIT NONE
     ! Inputs
     INTEGER, INTENT(IN) :: nelem,nNodes
-    REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
+    DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
 
     ! Outputs
-    REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(OUT) :: quadVals
-    REAL(KIND=8), DIMENSION(0:1,0:nelem+1), INTENT(OUT) :: edgeVals
+    DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(OUT) :: quadVals
+    DOUBLE PRECISION, DIMENSION(0:1,0:nelem+1), INTENT(OUT) :: edgeVals
 
     ! Local Variables
 
@@ -191,14 +199,13 @@ END SUBROUTINE evalExpansion
 
 SUBROUTINE numFlux(flx,edgeVals,uin,nelem,nNodes)
 	IMPLICIT NONE
-	INTEGER, PARAMETER :: DOUBLE = KIND(1D0)
 	! -- Inputs
 	INTEGER, INTENT(IN) :: nelem,nNodes
-	REAL(KIND=DOUBLE), DIMENSION(0:1,0:nelem+1), INTENT(IN) :: edgeVals
-	REAL(KIND=DOUBLE), DIMENSION(0:nNodes,0:nelem), INTENT(IN) :: uin
+	DOUBLE PRECISION, DIMENSION(0:1,0:nelem+1), INTENT(IN) :: edgeVals
+	DOUBLE PRECISION, DIMENSION(0:nNodes,0:nelem), INTENT(IN) :: uin
 
 	! -- Outputs
-	REAL(KIND=DOUBLE),DIMENSION(0:nelem), INTENT(OUT) :: flx
+	DOUBLE PRECISION,DIMENSION(0:nelem), INTENT(OUT) :: flx
 
 	! -- Local variables
 	INTEGER :: j
@@ -208,21 +215,21 @@ SUBROUTINE numFlux(flx,edgeVals,uin,nelem,nNodes)
 	ENDDO
 END SUBROUTINE numFlux
 
-REAL(KIND=8) FUNCTION dadt(quadVals,flx,u,qWeights,lagDeriv,k,j,nelem,nNodes)
+DOUBLE PRECISION FUNCTION dadt(quadVals,flx,u,qWeights,lagDeriv,k,j,nelem,nNodes)
     IMPLICIT NONE
     ! Inputs
     INTEGER, INTENT(IN) :: nelem,nNodes,k,j
-    REAL(KIND=8), DIMENSION(0:nNodes) :: quadVals,u,qWeights,lagDeriv
-    REAL(KIND=8), DIMENSION(0:nelem) :: flx
+    DOUBLE PRECISION, DIMENSION(0:nNodes) :: quadVals,u,qWeights,lagDeriv
+    DOUBLE PRECISION, DIMENSION(0:nelem) :: flx
 
     dadt = SUM( u(:)*quadVals(:)*lagDeriv(:)*qWeights(:) )
 
-    IF( k .eq. 0) THEN
-        dadt = dadt + flx(j-1)
-    ENDIF
-    IF( k .eq. nNodes) THEN
-        dadt = dadt - flx(j)
-    ENDIF
+!    IF( k .eq. 0) THEN
+!        dadt = dadt + flx(j-1)
+!    ENDIF
+!    IF( k .eq. nNodes) THEN
+!        dadt = dadt - flx(j)
+!    ENDIF
     dadt = 2D0*dadt/qWeights(k)
 
 END FUNCTION dadt

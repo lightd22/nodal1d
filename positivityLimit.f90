@@ -4,12 +4,12 @@ SUBROUTINE limitNodePositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
   IMPLICIT NONE
   ! Inputs
   INTEGER, INTENT(IN) :: nelem,nNodes,nQuad
-  REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
-  REAL(KIND=8), DIMENSION(1:nelem), INTENT(IN) :: avgVals
-  REAL(KIND=8), DIMENSION(0:nQuad), INTENT(IN) :: qWeights
+  DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
+  DOUBLE PRECISION, DIMENSION(1:nelem), INTENT(IN) :: avgVals
+  DOUBLE PRECISION, DIMENSION(0:nQuad), INTENT(IN) :: qWeights
   ! Local Variables
   INTEGER :: j,l
-  REAL(KIND=8) :: avg,theta,valMin,valMax,eps,Mt,Mp
+  DOUBLE PRECISION :: avg,theta,valMin,valMax,eps,Mt,Mp
 
   eps = epsilon(1d0)
   SELECT CASE(limitingMeth)
@@ -29,13 +29,15 @@ SUBROUTINE limitNodePositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
     DO j=1,nelem
       Mp = 0D0
       Mt = 0D0
+      avg = avgVals(j)
 
       DO l=0,nNodes
-          Mt = Mt + qWeights(l)*qIn(l,j)
+!          Mt = Mt + qWeights(l)*qIn(l,j)
           qIn(l,j) = MAX(0D0,qIn(l,j)) ! Zero out negative nodes
           Mp = Mp + qWeights(l)*qIn(l,j)
-      ENDDO !l
-      theta = MAX(Mt,0D0)/MAX(Mp,TINY(1D0))
+      ENDDO !l      
+!      theta = MAX(Mt,0D0)/MAX(Mp,TINY(1D0))
+      theta = 2D0*ABS(avg)/MAX(Mp,TINY(1D0))
       qIn(:,j) = theta*qIn(:,j) ! Reduce remaining positive nodes by reduction factor
     ENDDO !j
   CASE DEFAULT
@@ -51,12 +53,12 @@ SUBROUTINE limitMeanPositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
   IMPLICIT NONE
   ! Inputs
   INTEGER, INTENT(IN) :: nelem,nNodes,nQuad
-  REAL(KIND=8), DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
-  REAL(KIND=8), DIMENSION(1:nelem), INTENT(IN) :: avgVals
-  REAL(KIND=8), DIMENSION(0:nQuad), INTENT(IN) :: qWeights
+  DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
+  DOUBLE PRECISION, DIMENSION(1:nelem), INTENT(IN) :: avgVals
+  DOUBLE PRECISION, DIMENSION(0:nQuad), INTENT(IN) :: qWeights
   ! Local Variables
   INTEGER :: j
-  REAL(KIND=8) :: avg,theta,valMin,eps,qStar
+  DOUBLE PRECISION :: avg,theta,valMin,eps,qStar
 
   eps = epsilon(1d0)
   DO j=1,nelem
