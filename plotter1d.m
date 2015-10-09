@@ -37,24 +37,27 @@ which_res   = res(3);
 which_test  = tests(1);
 printExtrema = 1;
 
-for n=1:3
+for n=1:4
     if(n==1) 
         methname = 'Unlimited';
         nc = ['_ndgunlim/' ncfilename];
         file = ['figures/nodal/nod_' which_test{1}];
-        [nodal_unlim] = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
+        nodal_unlim = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
     elseif(n==2)
         methname = 'ZS Limited';
         nc = ['_ndgzhshu/' ncfilename];
         file = ['figures/zshu/zshu_' which_test{1}];
-        [nodal_shu] = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
+        nodal_shu = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
     elseif(n==3)
         methname = 'TMAR Limited';
         nc =['_matrunc/' ncfilename];
         nodal_ma = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
+    elseif(n==4)
+        methname = 'TMAR FCT';
+        nc =['_tmarFCT/' ncfilename];
+        nodal_fct = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
     end
 end
-
 
 %% Animate movie
 f = figure();

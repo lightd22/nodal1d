@@ -56,7 +56,7 @@ PROGRAM EXECUTE
 
   testEnd = 1
   ALLOCATE(testsVec(1:testEnd),STAT=ierr)
-  testsVec = (/ 4 /)
+  testsVec = (/ 1 /)
 
   write(*,*) '======================================================'
   write(*,*) '             BEGINNING RUN OF NODAL TESTS             '
@@ -285,21 +285,11 @@ PROGRAM EXECUTE
         ! Compute means to test positivity in Z&S Limiter
         DO j=1,nelem
           Mf(j) = 0.5D0*SUM(qWeights(:)*q(:,j))
-!                        qVals(0,j) = q(0,j)
-!                        qVals(nZSnodes,j) = q(N,j)
-!                        DO i=1,nZSnodes-1
-!                            qVals(i,j) = SUM(q(:,j)*lagValsZS(:,i))
-!                        ENDDO !l
-!                       Mf(j) = 0.5D0*SUM(quadZSWeights(:)*qVals(:,j))
         ENDDO !j
         minAVG = min(minAVG,minval(Mf))
-!                    IF(minAVG .lt. 0D0) THEN
-!                        write(*,'(A6,I4,A6)') 'After ',l,' steps'
-!                        write(*,'(A,E10.4)') 'minval =',minval(q)
-!                    ENDIF
 
-          tmp_qmax = MAX(MAXVAL(q),tmp_qmax)
-          tmp_qmin = MIN(MINVAL(q),tmp_qmin)
+        tmp_qmax = MAX(MAXVAL(q),tmp_qmax)
+        tmp_qmin = MIN(MINVAL(q),tmp_qmin)
       ENDDO !l
       tf = etime(tend) - t0
 
@@ -375,8 +365,8 @@ PROGRAM EXECUTE
 
 	    PI = DACOS(-1D0)
 
-  		u = 1D0!sqrt(2d0)!1D0
-  		tfinal = 5D0*maxval(u)
+  		u = -1D0!sqrt(2d0)!1D0
+  		tfinal = 5D0*maxval(abs(u))
 
   		DO j=1,nelem
   				xQuad(:,j) = ecent(j)+qnodes(:)*dxel/2D0

@@ -34,16 +34,12 @@ function [out] = plot_1dadv(methname,nc,res,file,stat,print_extrema)
 
 if(print_extrema == 1)
         text(0.65, .75,'Max','FontSize',14);
-        text(0.65, .68,'Exact:','FontSize',12);
-        text(0.65, .63,['Max:',num2str(max(tmp_ics))],'FontSize',12);
-        text(0.65, .58,'Apprx:','FontSize',12);
-        text(0.65, .53,['Max:',num2str(max(tmp))],'FontSize',12);
+        text(0.65, .68,['Exact:',num2str(max(tmp_ics))],'FontSize',12);
+        text(0.65, .58,['Apprx:',num2str(max(tmp))],'FontSize',12);
 
         text(0.20, .75,'Min','FontSize',14);
-        text(0.20, .68,'Exact:','FontSize',12);
-        text(0.20, .63,['Min:',num2str(min(tmp_ics))],'FontSize',12);
-        text(0.20, .58,'Apprx:','FontSize',12);
-        text(0.20, .53,['Min:',num2str(min(tmp))],'FontSize',12);
+        text(0.20, .68,['Exact:',num2str(min(tmp_ics))],'FontSize',12);
+        text(0.20, .58,['Apprx:',num2str(min(tmp))],'FontSize',12);
 end
         
         ftitle = {strcat(methname, sprintf(', Time: %0.2f sec ',t(end))),[' nelem=' num2str(size(tmp,2)/(out.N + 1))]};
