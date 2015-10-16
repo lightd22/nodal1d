@@ -24,7 +24,7 @@ SUBROUTINE limitNodePositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
       ! -- Rescale polynomial
       qIn(:,j) = theta*(qIn(:,j)-avg) + avg
     ENDDO!j
-  CASE(3:4)
+  CASE(3:5)
     ! Use "mass aware truncation" for for polynomial modification
     DO j=1,nelem
       Mp = 0D0
@@ -35,7 +35,7 @@ SUBROUTINE limitNodePositivity(qIn,avgVals,qWeights,nelem,nNodes,nQuad)
 !          Mt = Mt + qWeights(l)*qIn(l,j)
           qIn(l,j) = MAX(0D0,qIn(l,j)) ! Zero out negative nodes
           Mp = Mp + qWeights(l)*qIn(l,j)
-      ENDDO !l      
+      ENDDO !l
 !      theta = MAX(Mt,0D0)/MAX(Mp,TINY(1D0))
       theta = 2D0*ABS(avg)/MAX(Mp,TINY(1D0))
       qIn(:,j) = theta*qIn(:,j) ! Reduce remaining positive nodes by reduction factor

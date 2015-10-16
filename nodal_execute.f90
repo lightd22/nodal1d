@@ -56,7 +56,7 @@ PROGRAM EXECUTE
 
   testEnd = 1
   ALLOCATE(testsVec(1:testEnd),STAT=ierr)
-  testsVec = (/ 1 /)
+  testsVec = (/ 3 /)
 
   write(*,*) '======================================================'
   write(*,*) '             BEGINNING RUN OF NODAL TESTS             '
@@ -130,12 +130,13 @@ PROGRAM EXECUTE
 		xRight = 1D0
 		domWidth = xRight - xLeft
 
-		nmethod_final = 4
+		nmethod_final = 5
 		tmp_method = 0
 		tmp_method(1) = 1
 		tmp_method(2) = 2
     tmp_method(3) = 4
     tmp_method(4) = 5
+    tmp_method(5) = 6
 
 		DO nmethod=1,nmethod_final
 			doposlimit = .FALSE.
@@ -183,6 +184,13 @@ PROGRAM EXECUTE
           doFCT = .TRUE.
           limitingMeth = 4
 !          nZSNodes = maxPolyDegree
+          nZSNodes = CEILING((N+3)/2.0)-1
+        CASE(6)
+          WRITE(*,'(A,I1)') ' 1D Nodal, Lambda Rescaling + TMAR every stage, N= ', N
+          outDir = '_tmarLam/'
+          doposlimit = .TRUE.
+          doFCT = .TRUE.
+          limitingMeth = 5
           nZSNodes = CEILING((N+3)/2.0)-1
 			END SELECT
       write(*,'(A,I1)') ' LimitingMeth = ', limitingMeth
@@ -237,11 +245,14 @@ PROGRAM EXECUTE
 			! Set up timestep
       IF(modalComparisonTest) THEN
         dxm = dxel
-      ELSEIF(doConvergenceTest) THEN
-        dxm = 0.2D0*dxel**(DBLE(N+1)/3D0)
       ELSE
   			dxm = dxel*MINVAL(nodeSpacing)/2D0
       ENDIF
+
+      IF(doConvergenceTest) THEN
+        dxm = 0.2D0*dxel**(DBLE(N+1)/3D0)
+      ENDIF
+
 
       nsteps = 0
 			IF(noutput .eq. -1) THEN
@@ -365,9 +376,9 @@ PROGRAM EXECUTE
 
 	    PI = DACOS(-1D0)
 
-  		u = -1D0!sqrt(2d0)!1D0
-  		tfinal = 5D0*maxval(abs(u))
-
+  		u = 1D0!sqrt(2d0)!1D0
+  		tfinal = 50D0*maxval(abs(u))
+      !write(*,*) 'right edge',ecent+0.5D0*dxel
   		DO j=1,nelem
   				xQuad(:,j) = ecent(j)+qnodes(:)*dxel/2D0
   		ENDDO !j
@@ -379,6 +390,14 @@ PROGRAM EXECUTE
 				WHERE( xQuad .le. 0.6D0 .and. xQuad .ge. 0.4D0)
 					q = 1D0
 				END WHERE
+!        DO j=1,nelem
+!          q(0,j) = 1D0
+!          q(N,j) = 1D0
+!        ENDDO
+!        WHERE(xQuad .le. 0.5D0)
+!          u = -1D0
+!        ENDWHERE
+!        tfinal = 0.25D0
 			CASE(2) ! cos
 				cdf_out = 'dg1d_cos.nc'
         q = 0D0

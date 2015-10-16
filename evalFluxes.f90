@@ -94,13 +94,19 @@ SUBROUTINE evalFluxes(flx,quadVals,elemAvg,coeffs,uin,qWeights,nelem,nNodes,dt,d
     CASE(4)
       ! modified FCT
       CALL fctPolyMod(coeffs,flx,elemAvg,uin,dx,dt,nelem,nNodes)
+    CASE(5)
+      ! lambda modification
+      CALL lambdaPolyMod(coeffs,flx,elemAvg,uIn,dx,dt,nelem,nNodes)
+    CASE DEFAULT
+      RETURN
   END SELECT ! limiting meth
   CALL conservPolyMod(coeffs,edgeVals,qWeights,nelem,nNodes)
 
   ! Update quadurature and edge values using modified polynomial coefficients
   CALL evalExpansion(quadVals,edgeVals,coeffs,nelem,nNodes)
-!  CALL numFlux(flx,edgeVals,uin,nelem,nNodes)
 
+
+!  CALL numFlux(flx,edgeVals,uin,nelem,nNodes)
 !  DO j=1,nelem
 !    mean = elemAvg(j)
 !    tmp = 0.5D0*SUM(qWeights(:)*coeffs(:,j))
@@ -219,3 +225,100 @@ SUBROUTINE conservPolyMod(coeffs,prevEdgeVals,qWeights,nelem,nNodes)
     ENDDO !k
   ENDDO !j
 END SUBROUTINE conservPolyMod
+
+SUBROUTINE lambdaPolyMod(coeffs,flx,elemAvg,uIn,dx,dt,nelem,nNodes)
+  !
+  IMPLICIT NONE
+  ! Inputs
+  INTEGER, INTENT(IN) :: nelem,nNodes
+  DOUBLE PRECISION, INTENT(IN) :: dx,dt
+  DOUBLE PRECISION, DIMENSION(1:nelem), INTENT(IN) :: elemAvg
+  DOUBLE PRECISION, DIMENSION(0:nNodes,0:nelem), INTENT(IN) :: uin
+  ! Outputs
+  DOUBLE PRECISION, DIMENSION(0:nelem), INTENT(INOUT) :: flx
+  DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: coeffs
+  ! Local variables
+  INTEGER :: j
+  DOUBLE PRECISION :: lam,eps,Pj,alpha,beta
+  DOUBLE PRECISION, DIMENSION(0:1,0:nelem+1) :: tempEdge
+  DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem) :: tempQuad
+
+  INTERFACE
+    SUBROUTINE numFlux(flx,edgeVals,uin,nelem,nNodes)
+      IMPLICIT NONE
+      ! -- Inputs
+      INTEGER, INTENT(IN) :: nelem,nNodes
+      DOUBLE PRECISION, DIMENSION(0:1,0:nelem+1), INTENT(IN) :: edgeVals
+      DOUBLE PRECISION, DIMENSION(0:nNodes,0:nelem), INTENT(IN) :: uin
+      ! -- Outputs
+      DOUBLE PRECISION,DIMENSION(0:nelem), INTENT(OUT) :: flx
+    END SUBROUTINE numFlux
+
+    SUBROUTINE evalExpansion(quadVals,edgeVals,qIn,nelem,nNodes)
+    ! Evaluate ansatz solution at quadrature nodes and edges
+    ! Note:  Assumes basis is Lagrange interpolating polynomials at quad nodes -> phi_j (xi_k) = qIn(k,j)
+        IMPLICIT NONE
+        ! Inputs
+        INTEGER, INTENT(IN) :: nelem,nNodes
+        DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(INOUT) :: qIn
+
+        ! Outputs
+        DOUBLE PRECISION, DIMENSION(0:nNodes,1:nelem), INTENT(OUT) :: quadVals
+        DOUBLE PRECISION, DIMENSION(0:1,0:nelem+1), INTENT(OUT) :: edgeVals
+    END SUBROUTINE evalExpansion
+
+    DOUBLE PRECISION FUNCTION lambda(u,dt,dx)
+       IMPLICIT NONE
+       ! Inputs
+       DOUBLE PRECISION, INTENT(IN) :: u,dt,dx
+     END FUNCTION lambda
+
+  END INTERFACE
+
+  eps = 1D-10
+  DO j=1,nelem
+    ! Net flux out of Sj
+    Pj = MAX(0D0,flx(j))-MIN(0D0,flx(j-1))+eps
+
+    ! Compute left lambda and modify left edge if necessary
+    lam = lambda(uIn(0,j),dt,dx)
+    alpha = ABS(flx(j-1))/Pj
+    beta = 0.5D0*(ABS(SIGN(1D0,uIn(0,j)))-SIGN(1D0,uIn(0,j)))
+    coeffs(0,j) = (1D0-beta)*coeffs(0,j)+beta*MIN(coeffs(0,j),alpha*elemAvg(j)/lam)
+
+!    IF(uIn(0,j) .lt. 0D0) THEN
+!      coeffs(0,j) = MIN(coeffs(0,j),alpha*elemAvg(j)/lam)
+!    ENDIF
+
+!    write(*,*) 'j=',j
+!    write(*,*) 'max(coeff(0),coeff(N))=',max(coeffs(0,j),coeffs(nNodes,j))
+!    write(*,*) 'lam=',lam,elemAvg(j)
+!    write(*,*) '0.5*elemAvg/lam=',0.5*elemAvg(j)/lam
+!    write(*,*) 'uLeft=',uIn(0,j),'uRight=',uIn(nNodes,j)
+
+    lam = lambda(uIn(nNodes,j),dt,dx)
+    alpha = ABS(flx(j))/Pj
+    beta = 0.5D0*(SIGN(1D0,uIn(nNodes,j))+ABS(SIGN(1D0,uIn(nNodes,j))))
+    coeffs(nNodes,j) = (1D0-beta)*coeffs(nNodes,j)+beta*MIN(coeffs(nNodes,j),alpha*elemAvg(j)/lam)
+    
+!    IF(uIn(nNodes,j) .gt. 0D0) THEN
+!      coeffs(nNodes,j) = MIN(coeffs(nNodes,j),alpha*elemAvg(j)/lam)
+!    ENDIF
+
+  ENDDO !j
+
+  ! Update fluxes to reflect modified polynomial values
+  CALL evalExpansion(tempQuad,tempEdge,coeffs,nelem,nNodes)
+  CALL numFlux(flx,tempEdge,uIn,nelem,nNodes)
+END SUBROUTINE lambdaPolyMod
+
+DOUBLE PRECISION FUNCTION lambda(u,dt,dx)
+   IMPLICIT NONE
+   ! Inputs
+   DOUBLE PRECISION, INTENT(IN) :: u,dt,dx
+   ! Local variables
+   DOUBLE PRECISION :: eps
+
+   eps = 1D-8
+   lambda = MIN(MAX(eps,ABS(u)*dt/dx),1D0)
+END FUNCTION lambda

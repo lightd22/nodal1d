@@ -5,7 +5,7 @@
 
 SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt,&
                     nZSNodes,quadZSNodes,quadZSWeights,lagValsZS)
-    USE testParameters, ONLY: dofct
+    USE testParameters
     IMPLICIT NONE
     ! External Functions
 	  DOUBLE PRECISION, EXTERNAL :: dadt ! RHS function for evolution ODE for kth expansion coefficent
@@ -127,8 +127,6 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
         ENDDO !k
         qFwd(0,j) = qFwd(0,j)+2D0*dt*flx(j-1)/qWeights(0)/dxel
         qFwd(nNodes,j) = qFwd(nNodes,j)-2D0*dt*flx(j)/qWeights(nNodes)/dxel
-        ! Track change to averages
-!        avgVals(j) = avgVals(j)-(dt/dxel)*(flx(j)-flx(j-1))
       ENDDO ! j
 
   		SELECT CASE(stage)
@@ -151,6 +149,9 @@ SUBROUTINE nDGsweep(q,nelem,dxel,nNodes,qNodes,qWeights,u,lagDeriv,doposlimit,dt
             stopFlag = .TRUE.
           ENDIF
         ENDDO !j
+        IF(limitingMeth == 5) THEN
+          CALL limitNodePositivity(qStar,avgVals,qWeights,nelem,nNodes,nNodes)
+        ENDIF
       ENDIF
 
       IF(stopFlag) THEN

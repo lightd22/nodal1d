@@ -26,18 +26,18 @@ methods = { ...
           };
       
 res = {'1','2','3','4','5'};
-which_res = res(3);     
+which_res = res(1);     
 which_test = tests(1);
 ncfilename = strcat('dg1d_' ,which_test{1},'.nc');
 
 %% Cycle through methods
 
 stat        = 2;
-which_res   = res(3);
+which_res   = res(1);
 which_test  = tests(1);
 printExtrema = 1;
 
-for n=1:4
+for n=1:5
     if(n==1) 
         methname = 'Unlimited';
         nc = ['_ndgunlim/' ncfilename];
@@ -56,12 +56,16 @@ for n=1:4
         methname = 'TMAR FCT';
         nc =['_tmarFCT/' ncfilename];
         nodal_fct = plot_1dadv(methname,nc,which_res,file,stat,printExtrema);
+    elseif(n==5)
+        methname = 'TMAR Lambda';
+        nc =['_tmarLam/' ncfilename];
+        nodal_lam = plot_1dadv(methname,nc,which_res,file,stat,printExtrema); 
     end
 end
 
 %% Animate movie
 f = figure();
-hold = nodal_shu;
+hold = nodal_fct;
 tmp = squeeze(hold.data(1,:));
 ics = squeeze(hold.data(1,:));
 fin = squeeze(hold.data(end,:));
